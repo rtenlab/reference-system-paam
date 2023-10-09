@@ -286,19 +286,19 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -D
 ```
 
 ## Running the example
-In three separate terminals, run the following to test the server
+In three separate terminals, as the root user, run the following to test the server
 ```bash
-\# iox-roudi
+ iox-roudi
 ```
 ```bash
-\# source /root_dir/src/install/setup.bash
-\# export CYCLONEDDS_URI=file:///full/path/to/AAMF-RTAS/cyclonedds.xml
-\# RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/aamf_server/aamf_server
+source /root_dir/src/install/setup.bash
+export CYCLONEDDS_URI=file:///full/path/to/AAMF-RTAS/cyclonedds.xml
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/aamf_server/aamf_server
 ```
 ```bash
-\# source /root_dir/src/install/setup.bash
-\# export CYCLONEDDS_URI=file:///full/path/to/AAMF-RTAS/cyclonedds.xml
-\# RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/case_study args
+source /root_dir/src/install/setup.bash
+export CYCLONEDDS_URI=file:///full/path/to/AAMF-RTAS/cyclonedds.xml
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/case_study args
 
 ```
 
