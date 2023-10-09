@@ -40,7 +40,7 @@ find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package (Eigen3 REQUIRED)
 link_directories(${Eigen_INCLUDE_DIRS})
-
+find_package (gflags 2.2.2) 
 set(dependencies
   rclcpp
   rclcpp_action
