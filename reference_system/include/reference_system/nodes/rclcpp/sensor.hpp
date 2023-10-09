@@ -25,6 +25,9 @@
 #ifdef AAMF
 #include "reference_system/aamf_wrappers.hpp"
 #endif
+#ifdef DIRECT_INVOCATION
+#include "reference_system/gpu_operations.hpp"
+#endif
 namespace nodes
 {
   namespace rclcpp_system
@@ -40,16 +43,19 @@ namespace nodes
 #ifdef AAMF
         this->request_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10);
         this->reg_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10);
-        this->aamf_client_ =std::make_shared<aamf_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_);
+        this->aamf_client_ = std::make_shared<aamf_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_);
         this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, std::bind(&Sensor::handshake_callback, this, std::placeholders::_1));
         /*this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
                                                                                                           { this->aamf_client_->handshake_callback(msg); });
         */
-        //register_sub_->callback_priority = 99;
+        // register_sub_->callback_priority = 99;
 
         aamf_client_->register_subscriber(register_sub_);
         aamf_client_->register_sub_->callback_priority = 99;
         aamf_client_->send_handshake();
+#endif
+#ifdef DIRECT_INVOCATION
+        di_gemm = std::make_shared<gemm_operator>();
 #endif
         publisher_ = this->create_publisher<message_t>(settings.topic_name, 1);
         timer_ = this->create_wall_timer(
@@ -63,9 +69,10 @@ namespace nodes
 
     private:
 #ifdef AAMF
-    void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg){
-      aamf_client_->handshake_callback(msg);
-    }
+      void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+      {
+        aamf_client_->handshake_callback(msg);
+      }
 #endif
       void timer_callback()
       {
@@ -74,6 +81,9 @@ namespace nodes
         message.get().size = 0;
 #ifdef AAMF
         aamf_client_->aamf_gemm_wrapper(true);
+#endif
+#ifdef DIRECT_INVOCATION
+        di_gemm->gemm_wrapper();
 #endif
         set_sample(this->get_name(), sequence_number_++, 0, timestamp, message.get());
 
@@ -91,7 +101,11 @@ namespace nodes
       // rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
       rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
 #endif
+#ifdef DIRECT_INVOCATION
+      std::shared_ptr<gemm_operator> di_gemm;
+#endif
     };
+
   } // namespace rclcpp_system
 } // namespace nodes
 #endif // REFERENCE_SYSTEM__NODES__RCLCPP__SENSOR_HPP_

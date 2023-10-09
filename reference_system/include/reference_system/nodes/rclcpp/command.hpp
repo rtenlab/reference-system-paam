@@ -66,10 +66,12 @@ namespace nodes
       }
 
     private:
+#ifdef AAMF
       void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
       {
         aamf_client_[0]->handshake_callback(msg);
       }
+#endif
 
       void input_callback(const message_t::SharedPtr input_message)
       {
@@ -78,7 +80,7 @@ namespace nodes
         aamf_client_[0]->aamf_gemm_wrapper(true);
 #endif
 */
-#ifdef DIRECT_INVOCATION 
+#ifdef DIRECT_INVOCATION
         di_gemm->gemm_wrapper();
 #endif
         uint32_t missed_samples = get_missed_samples_and_update_seq_nr(input_message, sequence_number_);

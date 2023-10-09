@@ -26,6 +26,9 @@
 #ifdef AAMF
 #include "reference_system/aamf_wrappers.hpp"
 #endif
+#ifdef DIRECT_INVOCATION
+#include "reference_system/gpu_operations.hpp"
+#endif
 namespace nodes
 {
   namespace rclcpp_system
@@ -44,9 +47,8 @@ namespace nodes
           auto aamf_client = std::make_shared<aamf_client_wrapper>(connection.callback_priority, connection.callback_priority, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10), this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10));
 
           auto register_sub = this->create_subscription<aamf_server_interfaces::msg::GPURegister>(
-            "handshake_topic", 100, [this,id = connections_.size()]
-            (const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
-          { handshake_callback(msg, id); });
+              "handshake_topic", 100, [this, id = connections_.size()](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+              { handshake_callback(msg, id); });
           aamf_client->register_subscriber(register_sub);
           aamf_client->register_sub_->callback_priority = 99;
           aamf_client->send_handshake();
@@ -64,9 +66,14 @@ namespace nodes
                       }),
                   connection.number_crunch_limit
 #ifdef AAMF
-                  , aamf_client
+                  ,
+                  aamf_client
 #endif
-                  });
+#ifdef DIRECT_INVOCATION
+                  ,
+                  std::make_shared<gemm_operator>()
+#endif
+              });
         }
 #ifdef PICAS
         connections_[0].subscription->callback_priority = settings.connections[0].callback_priority;
@@ -75,16 +82,21 @@ namespace nodes
       }
 
     private:
-    void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg, const uint64_t id)
-    {
-      aamf_client_[id]->handshake_callback(msg);
-    }
+#ifdef AAMF
+      void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg, const uint64_t id)
+      {
+        aamf_client_[id]->handshake_callback(msg);
+      }
+#endif
       void input_callback(const message_t::SharedPtr input_message, const uint64_t id)
       {
         uint64_t timestamp = now_as_int();
         auto number_cruncher_result = number_cruncher(connections_[id].number_crunch_limit);
 #ifdef AAMF
         connections_[id].aamf_client->aamf_gemm_wrapper(true);
+#endif
+#ifdef DIRECT_INVOCATION
+        connections_[id].di_gemm->gemm_wrapper();
 #endif
         auto output_message = connections_[id].publisher->borrow_loaned_message();
         output_message.get().size = 0;
@@ -104,6 +116,10 @@ namespace nodes
       }
 
     private:
+      struct aamf_args{
+        const aamf_server_interfaces::msg::GPURegister::SharedPtr msg;
+        const uint64_t id;
+      };
       struct Connection
       {
         rclcpp::Publisher<message_t>::SharedPtr publisher;
@@ -112,11 +128,16 @@ namespace nodes
 #ifdef AAMF
         std::shared_ptr<aamf_client_wrapper> aamf_client;
 #endif
+#ifdef DIRECT_INVOCATION
+      std::shared_ptr<gemm_operator> di_gemm;
+#endif
         uint32_t sequence_number = 0;
         uint32_t input_sequence_number = 0;
       };
       std::vector<Connection> connections_;
+#ifdef AAMF
       std::vector<std::shared_ptr<aamf_client_wrapper>> aamf_client_;
+#endif
     };
   } // namespace rclcpp_system
 } // namespace nodes

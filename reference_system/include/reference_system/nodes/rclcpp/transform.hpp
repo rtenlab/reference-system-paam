@@ -25,6 +25,9 @@
 #ifdef AAMF
 #include "reference_system/aamf_wrappers.hpp"
 #endif
+#ifdef DIRECT_INVOCATION
+#include "reference_system/gpu_operations.hpp"
+#endif
 namespace nodes
 {
   namespace rclcpp_system
@@ -50,6 +53,9 @@ namespace nodes
         aamf_client_[0]->register_subscriber(register_sub_[0]);
         aamf_client_[0]->send_handshake();
 #endif
+#ifdef DIRECT_INVOCATION
+        di_gemm = std::make_shared<gemm_operator>();
+#endif
         subscription_ = this->create_subscription<message_t>(
             settings.input_topic, 1,
             [this](const message_t::SharedPtr msg)
@@ -61,16 +67,21 @@ namespace nodes
       }
 
     private:
+#ifdef AAMF
       void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
       {
         aamf_client_[0]->handshake_callback(msg);
       }
+#endif
       void input_callback(const message_t::SharedPtr input_message)
       {
         uint64_t timestamp = now_as_int();
         auto number_cruncher_result = number_cruncher(number_crunch_limit_);
 #ifdef AAMF
         aamf_client_[0]->aamf_gemm_wrapper(true);
+#endif
+#ifdef DIRECT_INVOCATION
+        di_gemm->gemm_wrapper();
 #endif
         auto output_message = publisher_->borrow_loaned_message();
         output_message.get().size = 0;
@@ -103,6 +114,10 @@ namespace nodes
       // rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
       std::vector<rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr> register_sub_;
 #endif
+#ifdef DIRECT_INVOCATION
+      std::shared_ptr<gemm_operator> di_gemm;
+      #endif
+
     };
   } // namespace rclcpp_system
 } // namespace nodes

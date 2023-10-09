@@ -24,7 +24,7 @@ endif()
 include_directories(../../include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(OpenCV_DIR "/usr/local/include/opencv4")
-
+ find_package (gflags 2.2.2) 
 include_directories(${OpenCV_INCLUDE_DIRS})
 find_package(ros_environment REQUIRED)
 find_package(std_msgs REQUIRED)

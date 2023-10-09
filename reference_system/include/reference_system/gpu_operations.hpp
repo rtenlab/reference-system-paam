@@ -1,3 +1,6 @@
+#ifndef GPU_OPERATIONS_HPP
+#define GPU_OPERATIONS_HPP
+
 #include <functional>
 #include <memory>
 #include <thread>
@@ -20,6 +23,7 @@
 
 // void run_sgemm(float *A_h, float *B_h, float *C_h, size_t A_sz, size_t B_sz, size_t C_sz, unsigned int matArow, unsigned int matAcol, unsigned int matBrow, unsigned int matBcol);
 // void run_hist(unsigned int* in_h, unsigned int* bins_h, unsigned int num_elements, unsigned int num_bins);
+
 class gemm_operator
 {
 public:
@@ -28,7 +32,6 @@ public:
     //void run_sgemm(float *A_h, float *B_h, float *C_h, size_t A_sz, size_t B_sz, size_t C_sz, unsigned int matArow, unsigned int matAcol, unsigned int matBrow, unsigned int matBcol);
     void init_sgemm();
     void gemm_wrapper();
-private:
     float *A_h, *B_h, *C_h;
     unsigned matArow, matAcol;
     unsigned matBrow, matBcol;
@@ -69,3 +72,8 @@ gemm_operator::~gemm_operator()
     free(B_h);
     free(C_h);
 }
+void di_gemm(gemm_operator* gemm_op);
+void gemm_operator::gemm_wrapper(void){
+    di_gemm(this);
+}
+#endif // GPU_OPERATIONS_HPP

@@ -22,7 +22,9 @@
 #include "autoware_reference_system/autoware_system_builder.hpp"
 #include "autoware_reference_system/system/timing/benchmark.hpp"
 #include "autoware_reference_system/system/timing/default.hpp"
-
+#ifdef DIRECT_INVOCATION
+#include "reference_system/gpu_operations.hpp"
+#endif
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
