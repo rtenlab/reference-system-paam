@@ -787,9 +787,17 @@ private:
   inline int assign_bucket(char chain_priority)
   {
     int num_buckets = this->numCudaStreams;
-    int num_priorities = 100;
+    int min_prio = 0, max_prio = 70;
+    if (chain_priority > max_prio)
+    {
+      return num_buckets -1;
+    }
+    else if (chain_priority < min_prio)
+    {
+      return 0;
+    }
+    int num_priorities = max_prio - min_prio + 1;
     int bucket_width = num_priorities / num_buckets;
-    int min_prio = 0, max_prio = 99;
     while (bucket_width * num_buckets < max_prio)
     {
       bucket_width++;

@@ -40,9 +40,9 @@ public:
 
 void gemm_operator::init_sgemm()
 {
-    matArow = 750;
-    matAcol = matBrow = 750;
-    matBcol = 750;
+    matArow = 850;
+    matAcol = matBrow = 850;
+    matBcol = 850;
 
     A_sz = matArow * matAcol;
     B_sz = matBrow * matBcol;
