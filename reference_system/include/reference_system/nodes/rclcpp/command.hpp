@@ -75,11 +75,11 @@ namespace nodes
 
       void input_callback(const message_t::SharedPtr input_message)
       {
-        /*
+        
 #ifdef AAMF
         aamf_client_[0]->aamf_gemm_wrapper(true);
 #endif
-*/
+
 #ifdef DIRECT_INVOCATION
         di_gemm->gemm_wrapper();
 #endif

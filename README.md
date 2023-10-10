@@ -286,7 +286,7 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -D
 ```
 
 ## Running the example
-In three separate terminals, as the root user, run the following to test the server
+In three separate terminals, as the *root* user, run the following to test the server
 ```bash
  iox-roudi
 ```
