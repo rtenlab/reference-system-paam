@@ -288,21 +288,25 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -D
 ## Running the example
 In three separate terminals, as the *root* user, run the following to test the server
 ```bash
- iox-roudi
+ iox-roudi -c /full/path/to/reference_system_aamf/roudi.toml
 ```
 ```bash
 source /root_dir/src/install/setup.bash
-export CYCLONEDDS_URI=file:///full/path/to/AAMF-RTAS/cyclonedds.xml
+export CYCLONEDDS_URI=file:///full/path/to/reference_system_aamf/cyclonedds.xml
 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/aamf_server/aamf_server
 ```
 ```bash
 source /root_dir/src/install/setup.bash
-export CYCLONEDDS_URI=file:///full/path/to/AAMF-RTAS/cyclonedds.xml
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/case_study args
+export CYCLONEDDS_URI=file:///full/path/to/reference_system_aamf/cyclonedds.xml
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/test_package args
 
 ```
-
-
+## Compile options:
+-DAAMF - enables aamf clients
+-DOVERHEAD_DEBUG - enables logging for overhead
+-DDIRECT_INVOCATION - enables the direct invocation of kernels
+ 
+ Note: compile options -DAAMF and -DDIRECT_INVOCATION should never be enabled simultaneously. 
 ## Setup Raspberry Pi 4 for the test
 
 The goal is to provide a clean computation environment for the test avoiding an interference of other Ubuntu components.

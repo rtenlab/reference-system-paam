@@ -292,8 +292,8 @@ private:
 
     void make_gemm_goal(struct gemm_struct *goal_struct)
     {
-        unsigned matArow = 850, matAcol = 850;
-        unsigned matBrow = 850, matBcol = 850;
+        unsigned matArow = 800, matAcol = 800;
+        unsigned matBrow = 800, matBcol = 800;
         // unsigned matArow = 1000, matAcol = 1000;
         // unsigned matBrow = 1000, matBcol = 1000;
         goal_struct->request.A_sz = matArow * matAcol;
