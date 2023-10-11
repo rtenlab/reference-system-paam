@@ -88,6 +88,10 @@ if(${PICAS})
   ament_auto_add_executable(autoware_default_singlethreaded_picas_multi_executors
     src/ros2/executor/autoware_default_singlethreaded_picas_multi_executors.cpp
   )
+
+  ament_auto_add_executable(autoware_default_multithreaded_picas
+    src/ros2/executor/autoware_default_multithreaded_picas.cpp
+  )
 endif()
 
 # Add new executors to test here

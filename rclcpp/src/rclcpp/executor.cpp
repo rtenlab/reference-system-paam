@@ -33,6 +33,7 @@
 #include "rclcpp/node_interfaces/node_base.hpp"
 
 #include "rcutils/logging_macros.h"
+#include <sys/time.h>
 
 #ifdef PICAS
 #include <rclcpp/cb_sched.hpp>
@@ -47,6 +48,11 @@ using rclcpp::AnyExecutable;
 using rclcpp::Executor;
 using rclcpp::ExecutorOptions;
 using rclcpp::FutureReturnCode;
+
+double overhead = 0;
+double max_elapsed = -1;
+int num_pp = 0;
+
 
 Executor::Executor(const rclcpp::ExecutorOptions & options)
 : spinning(false),
@@ -997,20 +1003,29 @@ Executor::get_next_executable(AnyExecutable & any_executable, std::chrono::nanos
   // If there are none
   if (!success) {
     // Wait for subscriptions or timers to work on
-#ifdef PICAS_DEBUG
+//#ifdef PICAS
     timeval ctime, ftime;
     double elapsed_time;
     gettimeofday(&ctime, NULL);
-#endif
+//#endif
 
     wait_for_work(timeout);
 
-#ifdef PICAS_DEBUG
+//#ifdef PICAS
     gettimeofday(&ftime, NULL);
     elapsed_time = (ftime.tv_sec - ctime.tv_sec) * 1.0;
     elapsed_time += (ftime.tv_usec - ctime.tv_usec) / 1000000.0;
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "[get_next_executable] Elaspsed time for wait_for_work is %f", elapsed_time);    
-#endif
+    overhead += elapsed_time;
+    num_pp += 1;
+    if (max_elapsed < elapsed_time) max_elapsed = elapsed_time;
+    //RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "max elaspsed: %f", max_elapsed);    
+    //RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "cumulative overhead: %f", overhead);    
+    //RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "num of pp: %d", num_pp);    
+    if (num_pp % 100 == 0) {
+      RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "max elapsed: %f, sum overhead: %f, # of pp: %d", max_elapsed, overhead, num_pp);    
+    }
+
+//#endif
 
     if (!spinning.load()) {
       return false;
