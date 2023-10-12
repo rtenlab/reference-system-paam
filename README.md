@@ -202,7 +202,7 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE \
     -D INSTALL_C_EXAMPLES=OFF \
     -D INSTALL_PYTHON_EXAMPLES=OFF \
     -D OPENCV_GENERATE_PKGCONFIG=ON \
-    -D OPENCV_EXTRA_MODULES_PATH=/home/daniel/Research/opencv_build/opencv_contrib/modules \
+    -D OPENCV_EXTRA_MODULES_PATH=/home/<user_name>/opencv_build/opencv_contrib/modules \
     -D BUILD_EXAMPLES=OFF ..
 make -j$(nproc)
 sudo make install
@@ -249,9 +249,9 @@ rosdep update
 rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-5.3.1 urdfdom_headers"
 sudo apt remove libopencv*
 cd ~/ros2_galactic/
-touch  ~/Research/ros2_galactic/src/ros-visualization/qt_gui_core/qt_gui_cpp/COLCON_IGNORE
-touch  ~/Research/ros2_galactic/src/ros-visualization/rqt/rqt_gui_cpp/COLCON_IGNORE
-vim ~/Research/ros2_galactic/src/ros-visualization/rqt/rqt/setup.py
+touch  ~/ros2_galactic/src/ros-visualization/qt_gui_core/qt_gui_cpp/COLCON_IGNORE
+touch  ~/ros2_galactic/src/ros-visualization/rqt/rqt_gui_cpp/COLCON_IGNORE
+vim ~/ros2_galactic/src/ros-visualization/rqt/rqt/setup.py
 # Add the following lines: after version='1.1.2'
 py_modules=[],
 
@@ -265,6 +265,8 @@ colcon build --symlink-install
 
 ```
 sudo rosdep init may fail because the file /etc/ros/rosdep/sources.list.d/20-default.list already exists. Delete it and run the command again. 
+
+If python3-catkin-pkg-modules is not found, install using pip: pip3 install catkin-pkg-modules
 
 ## Configure Environment
 Substitute 'cuda' with your cuda version if necessary, or create a symbolic link.
