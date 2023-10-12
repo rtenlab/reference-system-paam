@@ -303,10 +303,17 @@ RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/test_package arg
 ```
 ## Compile options:
 -DAAMF - enables aamf clients
+
 -DOVERHEAD_DEBUG - enables logging for overhead
+
 -DDIRECT_INVOCATION - enables the direct invocation of kernels
+
+-DPICAS - enables the PiCAS scheduling of callbacks
+
+-DAAMF_PICAS - enables PiCAS scheduling of callbacks from clients using AAMF 
  
  Note: compile options -DAAMF and -DDIRECT_INVOCATION should never be enabled simultaneously. 
+ Note 2: -DPICAS is required to be enabled in rclcpp for the aamf_server package. -- to test clients without PiCAS, it is preferred to set '-DAAMF_PICAS=FALSE' and recompile with PiCAS enabled '-DPICAS=TRUE'
 ## Setup Raspberry Pi 4 for the test
 
 The goal is to provide a clean computation environment for the test avoiding an interference of other Ubuntu components.

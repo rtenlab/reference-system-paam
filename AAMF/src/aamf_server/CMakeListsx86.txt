@@ -79,6 +79,7 @@ set(ABSL_LIBS absl_synchronization absl_stacktrace absl_symbolize absl_demangle_
 
 ExternalProject_Add(glog_src
     GIT_REPOSITORY https://github.com/google/glog
+    GIT_TAG v0.6.0
     GIT_PROGRESS 1
     GIT_SHALLOW 1
     CMAKE_ARGS -DWITH_GFLAGS=OFF

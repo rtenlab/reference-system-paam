@@ -25,19 +25,19 @@
 #ifdef DIRECT_INVOCATION
 #include "reference_system/gpu_operations.hpp"
 #endif
-int main(int argc, char * argv[])
+int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
 
   using TimeConfig = nodes::timing::Default;
   // uncomment for benchmarking
-  //using TimeConfig = nodes::timing::BenchmarkCPUUsage;
+  // using TimeConfig = nodes::timing::BenchmarkCPUUsage;
   // set_benchmark_mode(true);
 
   auto nodes = create_autoware_nodes<RclcppSystem, TimeConfig>();
 
   rclcpp::executors::SingleThreadedExecutor executor1, executor2, executor3, executor4;
-  
+#ifdef AAMF_PICAS
   executor1.enable_callback_priority();
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor1.callback_priority_enabled ? "Enabled" : "Disabled");
   executor1.set_executor_priority_cpu(90, 3);
@@ -57,30 +57,38 @@ int main(int argc, char * argv[])
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor4.callback_priority_enabled ? "Enabled" : "Disabled");
   executor4.set_executor_priority_cpu(87, 6);
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS executor 4's rt-priority %d and CPU %d", executor4.executor_priority, executor4.executor_cpu);
+#endif
+  std::vector<std::string> executor1_nodes{"VehicleDBWSystem", "VehicleInterface", "MPCController", "BehaviorPlanner"};
+  std::vector<std::string> executor2_nodes{"FrontLidarDriver", "RearLidarDriver", "PointsTransformerFront",
+                                           "PointsTransformerRear", "PointCloudFusion", "RayGroundFilter", "ObjectCollisionEstimator"};
+  std::vector<std::string> executor3_nodes{"EuclideanClusterDetector", "EuclideanClusterSettings", "IntersectionOutput"};
+  std::vector<std::string> executor4_nodes{"PointCloudMap", "PointCloudMapLoader", "VoxelGridDownsampler", "NDTLocalizer",
+                                           "Visualizer", "Lanelet2Map", "LanePlanner", "ParkingPlanner", "Lanelet2MapLoader", "Lanelet2GlobalPlanner"};
 
-  std::vector<std::string> executor1_nodes {"VehicleDBWSystem", "VehicleInterface", "MPCController", "BehaviorPlanner"};
-  std::vector<std::string> executor2_nodes {"FrontLidarDriver", "RearLidarDriver", "PointsTransformerFront",
-  "PointsTransformerRear", "PointCloudFusion", "RayGroundFilter", "ObjectCollisionEstimator"};
-  std::vector<std::string> executor3_nodes {"EuclideanClusterDetector", "EuclideanClusterSettings", "IntersectionOutput"};
-  std::vector<std::string> executor4_nodes {"PointCloudMap", "PointCloudMapLoader", "VoxelGridDownsampler", "NDTLocalizer",
-  "Visualizer", "Lanelet2Map", "LanePlanner", "ParkingPlanner", "Lanelet2MapLoader", "Lanelet2GlobalPlanner"};
-  
-  for (auto & node : nodes) {
-    if (std::count(executor1_nodes.begin(), executor1_nodes.end(), node->get_name())) {
+  for (auto &node : nodes)
+  {
+    if (std::count(executor1_nodes.begin(), executor1_nodes.end(), node->get_name()))
+    {
       executor1.add_node(node);
-      //std::cout << "exe1 : " << node->get_name() << std::endl;
-    } else if (std::count(executor2_nodes.begin(), executor2_nodes.end(), node->get_name())) {
+      // std::cout << "exe1 : " << node->get_name() << std::endl;
+    }
+    else if (std::count(executor2_nodes.begin(), executor2_nodes.end(), node->get_name()))
+    {
       executor2.add_node(node);
-      //std::cout << "exe2 : " << node->get_name() << std::endl;
-    } else if (std::count(executor3_nodes.begin(), executor3_nodes.end(), node->get_name())) {
+      // std::cout << "exe2 : " << node->get_name() << std::endl;
+    }
+    else if (std::count(executor3_nodes.begin(), executor3_nodes.end(), node->get_name()))
+    {
       executor3.add_node(node);
-      //std::cout << "exe3 : " << node->get_name() << std::endl;
-    } else if (std::count(executor4_nodes.begin(), executor4_nodes.end(), node->get_name())) {
+      // std::cout << "exe3 : " << node->get_name() << std::endl;
+    }
+    else if (std::count(executor4_nodes.begin(), executor4_nodes.end(), node->get_name()))
+    {
       executor4.add_node(node);
-      //std::cout << "exe4 : " << node->get_name() << std::endl;
+      // std::cout << "exe4 : " << node->get_name() << std::endl;
     }
   }
-  
+
   std::thread spinThread1(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &executor1);
   std::thread spinThread2(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &executor2);
   std::thread spinThread3(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &executor3);
@@ -89,11 +97,10 @@ int main(int argc, char * argv[])
   spinThread2.join();
   spinThread3.join();
   spinThread4.join();
-  
+
   nodes.clear();
 
   rclcpp::shutdown();
 
   return 0;
 }
-

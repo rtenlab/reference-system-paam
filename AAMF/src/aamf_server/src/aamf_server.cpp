@@ -57,22 +57,6 @@ using namespace std::chrono_literals;
 using namespace cv::dnn;
 using namespace cv;
 using namespace std;
-//#define OVERHEAD_DEBUG
-
-#ifdef OVERHEAD_DEBUG
-// std::ofstream ex_time;
-// static struct timeval overhead_ctime;
-static struct timeval start;
-static struct timeval end;
-static inline void log_time(std::string type)
-{
-  gettimeofday(&overhead_ctime, NULL);
-  ex_time.open(filename, std::ios::app);
-  ex_time << type << "," << overhead_ctime.tv_sec << "," << overhead_ctime.tv_usec << "\n";
-  ex_time.close();
-}
-
-#endif
 
 class AamfServer : public rclcpp::Node
 {
