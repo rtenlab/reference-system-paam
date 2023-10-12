@@ -151,11 +151,12 @@ create `include/reference_system/MY_EXECUTOR_NAME_nodes`
 
 1. Uninstall any ROS2 prebuilt binaries (e.g. sudo apt remove ros-galactic*)
 2. Uninstall libopencv-dev (sudo apt remove libopencv*)
-3. Download and install Nvidia Drivers.
-4. Download and install cuda 11.4+.
+3. Download and install Nvidia Drivers 
+4. Download and install cuda 11.4+ 
 5. Download and install CuDNN 8.6.0.166+
-6. Download and install OpenCV 4.5.4 (Replace CUDA_ARCH_BIN=7.2 with the compute capability of your nvidia card)
+6. Download and install OpenCV 4.5.4 (Replace CUDA_ARCH_BIN=7.2 with the compute capability of your nvidia card; 7.2 is for Jetpack 5.1.1 on Xavier AGX)
 
+Nvidia drivers, CUDA 11.4+, CuDNN 8.6.0.166+ could have been already installed as part of JetPack 5.1.1
 
 ```bash
 sudo apt install libcudnn8-dev
@@ -171,7 +172,12 @@ cd ../opencv_contrib
 git checkout 4.5.4
 git pull origin 4.5.4
 cd ../opencv/build
-
+```
+Below change CUDNN_LIBRARY, CUDNN_INCLUDE_DIR, and OPENCV_EXTRA_MODULES_PATH for your system. 
+For example, JetPack 5.1.1:
+- -D CUDNN_LIBRARY=/lib/aarch64-linux-gnu/libcudnn.so
+- -D CUDNN_INCLUDE_DIR=/usr/include
+```
 cmake -D CMAKE_BUILD_TYPE=RELEASE \
     -D CMAKE_INSTALL_PREFIX=/usr/local \
     -D WITH_TBB=ON \
@@ -201,6 +207,8 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE \
 make -j$(nproc)
 sudo make install
 ```
+If cmake fails for V4L, install it: sudo apt-get install libv4l-dev
+
 7. Download Ros2 Galactic and compile from source
 ```bash
 sudo apt update && sudo apt install -y \
@@ -215,7 +223,9 @@ sudo apt update && sudo apt install -y \
   python3-setuptools \
   python3-vcstool \
   wget
-
+```
+If python3-vcstool and python3-colcon-common-extensions are not found, install them using pip3: pip3 install -U colcon-common-sextensions vcstool
+```
 python3 -m pip install -U \
   flake8-blind-except \
   flake8-builtins \
@@ -254,7 +264,7 @@ cd ~/ros2_galactic/
 colcon build --symlink-install
 
 ```
-
+sudo rosdep init may fail because the file /etc/ros/rosdep/sources.list.d/20-default.list already exists. Delete it and run the command again. 
 
 ## Configure Environment
 Substitute 'cuda' with your cuda version if necessary, or create a symbolic link.
