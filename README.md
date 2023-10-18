@@ -320,12 +320,22 @@ RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/test_package arg
 
 -DDIRECT_INVOCATION - enables the direct invocation of kernels
 
--DPICAS - enables the PiCAS scheduling of callbacks
+-DPICAS - enables the PiCAS scheduling of callbacks (required for AAMF server and rclcpp)
 
--DAAMF_PICAS - enables PiCAS scheduling of callbacks from clients using AAMF 
+-DAAMF_PICAS - enables PiCAS scheduling of callbacks from clients using AAMF (allows AAMF server and rclcpp to compile and run with -DPICAS, but disables picas on clients)
  
  Note: compile options -DAAMF and -DDIRECT_INVOCATION should never be enabled simultaneously. 
  Note 2: -DPICAS is required to be enabled in rclcpp for the aamf_server package. -- to test clients without PiCAS, it is preferred to set '-DAAMF_PICAS=FALSE' and recompile with PiCAS enabled '-DPICAS=TRUE'
+
+## Running CTest and Generating Figures
+```bash
+sudo su
+cd /repo-root/
+source install/setup.bash
+colcon build --symlink-install --cmake-args -DPICAS=TRUE -DAAMF=FALSE -D AAMF_PICAS=TRUE -DDIRECT_INVOCATION=TRUE -DRUN_BENCHMARK=ON -DTEST_PLATFORM=TRUE --packages-select autoware_reference_system
+colcon test --packages-select autoware_reference_system
+```
+
 ## Setup Raspberry Pi 4 for the test
 
 The goal is to provide a clean computation environment for the test avoiding an interference of other Ubuntu components.
