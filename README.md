@@ -210,6 +210,17 @@ sudo make install
 If cmake fails for V4L, install it: sudo apt-get install libv4l-dev
 
 7. Download Ros2 Galactic and compile from source
+
+Add the ROS 2 apt repository to your system
+```bash
+sudo apt install software-properties-common
+sudo add-apt-repository universe
+
+sudo apt update && sudo apt install curl
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+```
 ```bash
 sudo apt update && sudo apt install -y \
   build-essential \
@@ -243,10 +254,11 @@ python3 -m pip install -U \
 mkdir -p ~/ros2_galactic/src
 cd ~/ros2_galactic
 vcs import --input https://raw.githubusercontent.com/ros2/ros2/galactic/ros2.repos src
+sudo apt update
 sudo apt upgrade
 sudo rosdep init
-rosdep update
-rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-5.3.1 urdfdom_headers"
+rosdep update --include-eol-distros
+rosdep install --from-paths src --ignore-src --rosdistro galactic -y --skip-keys "fastcdr rti-connext-dds-5.3.1 urdfdom_headers"
 sudo apt remove libopencv*
 cd ~/ros2_galactic/
 touch  ~/ros2_galactic/src/ros-visualization/qt_gui_core/qt_gui_cpp/COLCON_IGNORE
