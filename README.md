@@ -234,9 +234,7 @@ sudo apt update && sudo apt install -y \
   python3-setuptools \
   python3-vcstool \
   wget
-```
-If python3-vcstool and python3-colcon-common-extensions are not found, install them using pip3: pip3 install -U colcon-common-sextensions vcstool
-```
+
 python3 -m pip install -U \
   flake8-blind-except \
   flake8-builtins \
