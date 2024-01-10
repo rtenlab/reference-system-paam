@@ -210,6 +210,17 @@ sudo make install
 If cmake fails for V4L, install it: sudo apt-get install libv4l-dev
 
 7. Download Ros2 Galactic and compile from source
+
+Add the ROS 2 apt repository to your system
+```bash
+sudo apt install software-properties-common
+sudo add-apt-repository universe
+
+sudo apt update && sudo apt install curl
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+```
 ```bash
 sudo apt update && sudo apt install -y \
   build-essential \
@@ -223,9 +234,7 @@ sudo apt update && sudo apt install -y \
   python3-setuptools \
   python3-vcstool \
   wget
-```
-If python3-vcstool and python3-colcon-common-extensions are not found, install them using pip3: pip3 install -U colcon-common-sextensions vcstool
-```
+
 python3 -m pip install -U \
   flake8-blind-except \
   flake8-builtins \
@@ -243,10 +252,11 @@ python3 -m pip install -U \
 mkdir -p ~/ros2_galactic/src
 cd ~/ros2_galactic
 vcs import --input https://raw.githubusercontent.com/ros2/ros2/galactic/ros2.repos src
+sudo apt update
 sudo apt upgrade
 sudo rosdep init
-rosdep update
-rosdep install --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-5.3.1 urdfdom_headers"
+rosdep update --include-eol-distros
+rosdep install --from-paths src --ignore-src --rosdistro galactic -y --skip-keys "fastcdr rti-connext-dds-5.3.1 urdfdom_headers"
 sudo apt remove libopencv*
 cd ~/ros2_galactic/
 touch  ~/ros2_galactic/src/ros-visualization/qt_gui_core/qt_gui_cpp/COLCON_IGNORE
@@ -320,12 +330,22 @@ RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/test_package arg
 
 -DDIRECT_INVOCATION - enables the direct invocation of kernels
 
--DPICAS - enables the PiCAS scheduling of callbacks
+-DPICAS - enables the PiCAS scheduling of callbacks (required for AAMF server and rclcpp)
 
--DAAMF_PICAS - enables PiCAS scheduling of callbacks from clients using AAMF 
+-DAAMF_PICAS - enables PiCAS scheduling of callbacks from clients using AAMF (allows AAMF server and rclcpp to compile and run with -DPICAS, but disables picas on clients)
  
  Note: compile options -DAAMF and -DDIRECT_INVOCATION should never be enabled simultaneously. 
  Note 2: -DPICAS is required to be enabled in rclcpp for the aamf_server package. -- to test clients without PiCAS, it is preferred to set '-DAAMF_PICAS=FALSE' and recompile with PiCAS enabled '-DPICAS=TRUE'
+
+## Running CTest and Generating Figures
+```bash
+sudo su
+cd /repo-root/
+source install/setup.bash
+colcon build --symlink-install --cmake-args -DPICAS=TRUE -DAAMF=FALSE -D AAMF_PICAS=TRUE -DDIRECT_INVOCATION=TRUE -DRUN_BENCHMARK=ON -DTEST_PLATFORM=TRUE --packages-select autoware_reference_system
+colcon test --packages-select autoware_reference_system
+```
+
 ## Setup Raspberry Pi 4 for the test
 
 The goal is to provide a clean computation environment for the test avoiding an interference of other Ubuntu components.
