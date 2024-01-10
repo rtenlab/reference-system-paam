@@ -43,10 +43,17 @@ public:
     }
     void aamf_tpu_wrapper(bool sleep)
     {
+        #ifdef DEBUG_TIME
+        timeval t1, t2;
+        #endif
         if (!this->handshake_complete)
         {
+            printf("Handshake not complete\n");
             return;
         }
+        #ifdef DEBUG_TIME
+        gettimeofday(&t1, NULL);
+        #endif
         this->send_tpu_request();
         if (sleep)
         {
@@ -56,13 +63,25 @@ public:
         {
             this->wait_on_tpu_ready();
         }
+        #ifdef DEBUD_TIME
+        gettimeofday(&t2, NULL);
+        long elapsed = (t2.tv_sec - t1.tv_sec) * 1000000 + t2.tv_usec - t1.tv_usec;
+        printf("TPU Time: %ld\n", elapsed);
+        #endif 
     }
     void aamf_gemm_wrapper(bool sleep)
     {
+        #ifdef DEBUG_TIME
+        timeval t1, t2;
+        #endif
         if (!this->handshake_complete)
         {
+            printf("Handshake not complete\n");
             return;
         }
+        #ifdef DEBUG_TIME
+        gettimeofday(&t1, NULL);
+        #endif 
         this->send_gemm_request();
         if (sleep)
         {
@@ -72,6 +91,11 @@ public:
         {
             this->wait_on_gemm_ready();
         }
+        #ifdef DEBUG_TIME
+        gettimeofday(&t2, NULL);
+        long elapsed = (t2.tv_sec - t1.tv_sec) * 1000000 + t2.tv_usec - t1.tv_usec;
+        printf("GEMM Time: %ld\n", elapsed);
+        #endif
     }
     void send_handshake(void)
     {
@@ -96,11 +120,11 @@ public:
     void handshake_callback(aamf_server_interfaces::msg::GPURegister::SharedPtr request)
     {
         boost::uuids::uuid incoming_uuid = this->toBoostUUID(request->uuid);
-        //while(register_sub_ == nullptr);;
+        // while(register_sub_ == nullptr);;
 
         if (incoming_uuid != uuid)
         {
-            //std::printf("Handshake not for me\n");
+            // std::printf("Handshake not for me\n");
             return;
         }
 
@@ -111,7 +135,7 @@ public:
 
         this->attach_to_shm();
         this->write_to_shm();
-        std::printf("Handshake Complete\n");
+        // std::printf("Handshake Complete\n");
 
         this->handshake_complete = true;
     }
@@ -133,7 +157,6 @@ public:
             request_publisher_ = other.request_publisher_;
             reg_publisher_ = other.reg_publisher_;
             register_sub_ = other.register_sub_;
-
         }
         return *this;
     }
@@ -184,7 +207,6 @@ private:
         tpu_message.chain_priority = this->chain_priority;
         tpu_message.uuid = this->uuid_array;
         tpu_message.callback_priority = this->callback_priority;
-
     }
     void send_tpu_request()
     {
@@ -313,16 +335,26 @@ private:
     }
     void sleep_on_gemm_ready()
     {
+
         pthread_mutex_lock(&this->gemm_shm->pthread_mutex);
-        pthread_cond_wait(&this->gemm_shm->pthread_cv, &this->gemm_shm->pthread_mutex);
-        pthread_mutex_unlock(&this->gemm_shm->pthread_mutex);
+        do
+        {
+            pthread_cond_wait(&this->gemm_shm->pthread_cv, &this->gemm_shm->pthread_mutex);
+        } while (this->gemm_shm->ready == false);
+
+            pthread_mutex_unlock(&this->gemm_shm->pthread_mutex);
         this->gemm_shm->ready = false;
     }
 
     void sleep_on_tpu_ready()
     {
+
         pthread_mutex_lock(&this->tpu_shm->pthread_mutex);
-        pthread_cond_wait(&this->tpu_shm->pthread_cv, &this->tpu_shm->pthread_mutex);
+
+        do
+        {
+            pthread_cond_wait(&this->tpu_shm->pthread_cv, &this->tpu_shm->pthread_mutex);
+        } while (this->tpu_shm->ready == false);
         pthread_mutex_unlock(&this->tpu_shm->pthread_mutex);
         this->tpu_shm->ready = false;
     }

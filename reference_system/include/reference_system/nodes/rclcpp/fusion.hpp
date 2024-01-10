@@ -42,9 +42,9 @@ namespace nodes
       {
 
 #ifdef AAMF
-        auto aamf_client = std::make_shared<aamf_client_wrapper>(settings.callback_priority_1, settings.callback_priority_1, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10),
-                                                                 this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10));
-        auto register_sub = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+        auto aamf_client = std::make_shared<aamf_client_wrapper>(settings.callback_priority_1, settings.callback_priority_1, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024),
+                                                                 this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024));
+        auto register_sub = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
                                                                                                 { Fusion::handshake_callback( 0U, msg); });
         aamf_client->register_subscriber(register_sub);
         aamf_client->register_sub_->callback_priority = 99;
@@ -60,9 +60,9 @@ namespace nodes
             [this](const message_t::SharedPtr msg)
             { input_callback(0U, msg); });
 #ifdef AAMF
-        auto aamf_client_1 = std::make_shared<aamf_client_wrapper>(settings.callback_priority_2, settings.callback_priority_2, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10),
-                                                                   this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10));
-        auto register_sub_1 = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+        auto aamf_client_1 = std::make_shared<aamf_client_wrapper>(settings.callback_priority_2, settings.callback_priority_2, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024),
+                                                                   this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024));
+        auto register_sub_1 = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
                                                                                                   {Fusion::handshake_callback(1U, msg); });
         aamf_client_1->register_subscriber(register_sub_1);
         aamf_client_1->register_sub_->callback_priority = 99;

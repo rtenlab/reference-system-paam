@@ -41,10 +41,13 @@ namespace nodes
       {
 
 #ifdef AAMF
-        this->request_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10);
-        this->reg_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10);
+        this->request_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024);
+        this->reg_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024);
+        //if(settings.node_name.compare("FrontLidarDriver") == 0){
+       // std::this_thread::sleep_for(std::chrono::milliseconds(7000));
+        //}
         this->aamf_client_ = std::make_shared<aamf_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_);
-        this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, std::bind(&Sensor::handshake_callback, this, std::placeholders::_1));
+        this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, std::bind(&Sensor::handshake_callback, this, std::placeholders::_1));
         /*this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
                                                                                                           { this->aamf_client_->handshake_callback(msg); });
         */

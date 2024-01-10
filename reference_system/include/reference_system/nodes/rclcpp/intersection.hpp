@@ -44,10 +44,10 @@ namespace nodes
         for (auto &connection : settings.connections)
         {
 #ifdef AAMF
-          auto aamf_client = std::make_shared<aamf_client_wrapper>(connection.callback_priority, connection.callback_priority, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10), this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10));
+          auto aamf_client = std::make_shared<aamf_client_wrapper>(connection.callback_priority, connection.callback_priority, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024), this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024));
 
           auto register_sub = this->create_subscription<aamf_server_interfaces::msg::GPURegister>(
-              "handshake_topic", 100, [this, id = connections_.size()](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+              "handshake_topic", 1024, [this, id = connections_.size()](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
               { handshake_callback(msg, id); });
           aamf_client->register_subscriber(register_sub);
           aamf_client->register_sub_->callback_priority = 99;
