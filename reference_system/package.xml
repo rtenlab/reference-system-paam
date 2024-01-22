@@ -15,7 +15,7 @@
   <depend>rclcpp</depend>
   <depend>reference_interfaces</depend>
   <depend>rcl_interfaces</depend>
-  <depend>aamf_server_interfaces</depend>
+  <depend>paam_server_interfaces</depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <test_depend>ros_testing</test_depend>

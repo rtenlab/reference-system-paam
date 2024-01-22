@@ -38,9 +38,9 @@ class tpu_operator
     ~tpu_operator();
     void init_tpu();
     void tpu_wrapper();
-    std::string model_file = "/home/aamf/Research/AAMF-RTAS/src/aamf_server/test_data/inception_v2_224_quant_edgetpu.tflite";
-    std::string label_file = "/home/aamf/Research/AAMF-RTAS/src/aamf_server/test_data/imagenet_labels.txt.1";
-    std::string input_file = "/home/aamf/Research/AAMF-RTAS/src/aamf_server/test_data/resized_cat.bmp";
+    std::string model_file = "/home/paam/Research/paam-RTAS/src/paam_server/test_data/inception_v2_224_quant_edgetpu.tflite";
+    std::string label_file = "/home/paam/Research/paam-RTAS/src/paam_server/test_data/imagenet_labels.txt.1";
+    std::string input_file = "/home/paam/Research/paam-RTAS/src/paam_server/test_data/resized_cat.bmp";
     std::unique_ptr<tflite::FlatBufferModel> model;
     std::unique_ptr<tflite::Interpreter> interpreter;
     std::shared_ptr<edgetpu::EdgeTpuContext> edgetpu_context;
