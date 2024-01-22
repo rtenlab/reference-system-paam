@@ -22,9 +22,6 @@
 #include "autoware_reference_system/autoware_system_builder.hpp"
 #include "autoware_reference_system/system/timing/benchmark.hpp"
 #include "autoware_reference_system/system/timing/default.hpp"
-#ifdef DIRECT_INVOCATION
-#include "reference_system/gpu_operations.hpp"
-#endif
 int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
@@ -37,25 +34,25 @@ int main(int argc, char *argv[])
   auto nodes = create_autoware_nodes<RclcppSystem, TimeConfig>();
 
   rclcpp::executors::SingleThreadedExecutor executor1, executor2, executor3, executor4;
-#ifdef AAMF_PICAS
+#ifdef PAAM_PICAS
   executor1.enable_callback_priority();
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor1.callback_priority_enabled ? "Enabled" : "Disabled");
-  executor1.set_executor_priority_cpu(90, 3);
+  executor1.set_executor_priority_cpu(90, 5);
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS executor 1's rt-priority %d and CPU %d", executor1.executor_priority, executor1.executor_cpu);
 
   executor2.enable_callback_priority();
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor2.callback_priority_enabled ? "Enabled" : "Disabled");
-  executor2.set_executor_priority_cpu(89, 4);
+  executor2.set_executor_priority_cpu(89, 6);
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS executor 2's rt-priority %d and CPU %d", executor2.executor_priority, executor2.executor_cpu);
 
   executor3.enable_callback_priority();
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor3.callback_priority_enabled ? "Enabled" : "Disabled");
-  executor3.set_executor_priority_cpu(88, 5);
+  executor3.set_executor_priority_cpu(88, 3);
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS executor 3's rt-priority %d and CPU %d", executor3.executor_priority, executor3.executor_cpu);
 
   executor4.enable_callback_priority();
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor4.callback_priority_enabled ? "Enabled" : "Disabled");
-  executor4.set_executor_priority_cpu(87, 6);
+  executor4.set_executor_priority_cpu(87, 4);
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS executor 4's rt-priority %d and CPU %d", executor4.executor_priority, executor4.executor_cpu);
 #endif
   std::vector<std::string> executor1_nodes{"VehicleDBWSystem", "VehicleInterface", "MPCController", "BehaviorPlanner"};

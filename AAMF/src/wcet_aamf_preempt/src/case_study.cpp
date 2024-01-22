@@ -19,7 +19,7 @@
 #include "rclcpp/rclcpp.hpp"
 // #include "std_msgs/msg/string.hpp"
 #include "test_msgs/msg/detail/test_string__struct.hpp"
-//#include "test_msgs/msg/TestString.msg"
+// #include "test_msgs/msg/TestString.msg"
 
 using std::placeholders::_1;
 // std::mutex mtx;
@@ -27,7 +27,6 @@ using std::placeholders::_1;
 #define gettid() syscall(__NR_gettid)
 #define USE_INTRA_PROCESS_COMMS false
 // #define USE_INTRA_PROCESS_COMMS true
-#define OVERHEAD_DEBUG
 
 #ifdef OVERHEAD_DEBUG
 std::ofstream ex_time;
@@ -69,14 +68,16 @@ class StartNode : public rclcpp::Node
 {
 public:
   StartNode(const std::string node_name, const std::string pub_topic, std::shared_ptr<trace::Trace> trace_ptr,
-            int exe_time, int period, bool end_flag, int callback_priority, int kernel_id)
-      : Node(node_name, rclcpp::NodeOptions().use_intra_process_comms(USE_INTRA_PROCESS_COMMS)), count_(0), trace_callbacks_(trace_ptr), exe_time_(exe_time), period_(period), end_flag_(end_flag), callback_priority_(callback_priority), kernel_id_(kernel_id)
+            int exe_time, int period, bool end_flag, int callback_priority, int kernel_id, int gemm_size)
+      : Node(node_name, rclcpp::NodeOptions().use_intra_process_comms(USE_INTRA_PROCESS_COMMS)), count_(0), trace_callbacks_(trace_ptr), exe_time_(exe_time), period_(period), end_flag_(end_flag), callback_priority_(callback_priority), kernel_id_(kernel_id), gemm_size(gemm_size)
   {
     this->uuid = boost::uuids::random_generator()();
     std::vector<uint8_t> v(this->uuid.size());
     std::copy(this->uuid.begin(), this->uuid.end(), v.begin());
     std::copy_n(v.begin(), 16, uuid_array.begin());
+    #ifdef OVERHEAD_DEBUG
     attach_log_shm();
+    #endif
     unsigned int i = 0;
 
     for (i = 0; i < 16; i++)
@@ -88,6 +89,7 @@ public:
     this->callback_priority = callback_priority_;
     this->request_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 10);
     this->reg_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 10);
+    std::this_thread::sleep_for(7000ms);
     this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>(
         "handshake_topic", 1000, std::bind(&StartNode::handshake_callback, this, std::placeholders::_1));
     this->pid = getpid();
@@ -179,7 +181,7 @@ public:
 #ifdef OVERHEAD_DEBUG
     // logger->set_end();
     // logger->log_latency("Message Sent");
-    // log_time("Message Sent and Process Sleep");
+    //  log_time("Message Sent and Process Sleep");
 #endif
     if (sleep)
     {
@@ -279,10 +281,12 @@ public:
     // message.kernels.push_back(data);
     // data.data = "LANE";
     // message.kernels.push_back(data);
+    /*
     data.data = "RED";
     message.kernels.push_back(data);
     data.data = "VEC";
     message.kernels.push_back(data);
+    */
     data.data = "TPU";
     message.kernels.push_back(data);
     message.priority = 0;                    // 1-99
@@ -418,15 +422,16 @@ private:
       }
     }
   }
+  int gemm_size;
   void write_to_shm()
   {
-    this->make_gemm_goal(this->gemm_shm);
-    this->make_hist_goal(this->hist_shm);
+    this->make_gemm_goal(this->gemm_shm, this->gemm_size);
+    //this->make_hist_goal(this->hist_shm);
     // this->capture.open("/home/aamf/Research/sample.mp4");
     // this->make_yolo_goal(this->yolo_shm);
     // this->make_lane_goal(this->lane_shm);
-    this->make_red_goal(this->red_shm);
-    this->make_vec_goal(this->vec_shm);
+    //this->make_red_goal(this->red_shm);
+    //this->make_vec_goal(this->vec_shm);
     this->make_tpu_goal(this->tpu_shm);
   }
   void attach_to_shm(void)
@@ -541,17 +546,20 @@ private:
     message.pid = this->pid;
     message.chain_priority = chain_priority;
     message.uuid = this->uuid_array;
+    //printf("Message size: %d \n", sizeof(message));
   }
   void send_gemm_request(int chain_priority, std::string callback_name)
   {
     auto gemm_message = request_publisher_->borrow_loaned_message();
     this->populateLoanedGEMMMessage(gemm_message, chain_priority);
+#ifdef OVERHEAD_DEBUG
     logger->set_end();
     logger->log_latency("Message Building");
     logger->set_start();
+#endif
     request_publisher_->publish(std::move(gemm_message));
 
-    //request_publisher_->publish(message);
+    // request_publisher_->publish(message);
   }
   void send_hist_request(int chain_priority, std::string callback_name)
   {
@@ -701,7 +709,10 @@ private:
   void sleep_on_gemm_ready()
   {
     pthread_mutex_lock(&this->gemm_shm->pthread_mutex);
-    pthread_cond_wait(&this->gemm_shm->pthread_cv, &this->gemm_shm->pthread_mutex);
+    do
+    {
+      pthread_cond_wait(&this->gemm_shm->pthread_cv, &this->gemm_shm->pthread_mutex);
+    } while (this->gemm_shm->ready == false);
     pthread_mutex_unlock(&this->gemm_shm->pthread_mutex);
     this->gemm_shm->ready = false;
   }
@@ -923,10 +934,10 @@ private:
     goal_struct->request.threshold = 0.1;
     std::memcpy(goal_struct->request.image, image.data(), image.size());
   }
-  void make_gemm_goal(struct gemm_struct *goal_struct)
+  void make_gemm_goal(struct gemm_struct *goal_struct, int size)
   {
-    unsigned matArow = 800, matAcol = 800;
-    unsigned matBrow = 800, matBcol = 800;
+    unsigned matArow = size, matAcol = size;
+    unsigned matBrow = size, matBcol = size;
     // unsigned matArow = 1000, matAcol = 1000;
     // unsigned matBrow = 1000, matBcol = 1000;
     goal_struct->request.A_sz = matArow * matAcol;
@@ -1231,32 +1242,31 @@ int main(int argc, char *argv[])
 
   timeval ctime;
   gettimeofday(&ctime, NULL);
-  std::shared_ptr<trace::Trace> trace_callbacks = std::make_shared<trace::Trace>("/home/aamf/Research/data/wcet_" + kernel + "_aamf.txt");
+  std::shared_ptr<trace::Trace> trace_callbacks = std::make_shared<trace::Trace>("/home/aamf/Research/data/wcet_t1_" + kernel + "_aamf.txt");
   trace_callbacks->trace_write("init", std::to_string(ctime.tv_sec * 1000 + ctime.tv_usec / 1000));
-  auto task1 = std::make_shared<StartNode>("C1T_12_26", "task1", trace_callbacks, 2, 100, false, 99, kernel_id);
+  auto task1 = std::make_shared<StartNode>("C1T_12_26", "task1", trace_callbacks, 2, 100, false, 99, kernel_id, 1000);
   rclcpp::executors::SingleThreadedExecutor exec1;
   exec1.enable_callback_priority();
   exec1.set_executor_priority_cpu(90, 2);
   exec1.add_node(task1);
   exec1.set_callback_priority(task1->register_sub_, 99);
   exec1.set_callback_priority(task1->timer_, 98);
+  std::shared_ptr<trace::Trace> trace_callbacks2 = std::make_shared<trace::Trace>("/home/aamf/Research/data/wcet_t2_" + kernel + "_aamf.txt");
+  trace_callbacks2->trace_write("init", std::to_string(ctime.tv_sec * 1000 + ctime.tv_usec / 1000));
+   auto task2 = std::make_shared<StartNode>("C2T_0_0", "task2", trace_callbacks2, 2, 100, false, 25, kernel_id, 5000);
+   rclcpp::executors::SingleThreadedExecutor exec2;
+   exec2.enable_callback_priority();
+   exec2.set_executor_priority_cpu(90, 3);
+   exec2.add_node(task2);
+   exec2.set_callback_priority(task2->register_sub_, 25);
+   exec2.set_callback_priority(task2->timer_, 25);
   std::thread spinThread1(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &exec1);
+   std::thread spinThread2(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &exec2);
   spinThread1.join();
+  spinThread2.join();
   exec1.remove_node(task1);
-  /*
-    std::shared_ptr<trace::Trace> trace_callbacks2 = std::make_shared<trace::Trace>("/home/aamf/Research/data/wcet_" + kernel + "_aamf.txt");
-    trace_callbacks2->trace_write("init", std::to_string(ctime.tv_sec * 1000 + ctime.tv_usec / 1000));
-    auto task2 = std::make_shared<StartNode>("C2T_0_0", "task2", trace_callbacks2, 2, 100, false, 0, kernel_id);
-    rclcpp::executors::SingleThreadedExecutor exec2;
-    exec2.enable_callback_priority();
-    exec2.set_executor_priority_cpu(0, 3);
-    exec2.add_node(task2);
-    exec2.set_callback_priority(task2->register_sub_, 0);
-    exec2.set_callback_priority(task2->timer_, 0);
-    std::thread spinThread2(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &exec2);
-    spinThread2.join();
-    exec2.remove_node(task2);
-    */
+   exec2.remove_node(task2);
+
   rclcpp::shutdown();
   return 0;
 }

@@ -2,15 +2,16 @@
 #define CUDACC
 #endif
 
-// #include "cuda_runtime.h"
-#include "device_launch_parameters.h"
 #include <cuda.h>
+#include <cuda_runtime_api.h>
+#include <cuda_runtime.h>
+#include <driver_types.h>
+#include <cuda_device_runtime_api.h>
+#include <cuda_profiler_api.h>
 #include <thrust/count.h>
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
-// #include <device_functions.h>
-#include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -31,28 +32,15 @@
 using namespace std;
 using namespace cv;
 
-#define TILE_SIZE 16
-#define BLOCK_SIZE 512
-
-#define OVERHEAD_DEBUG
-#ifdef OVERHEAD_DEBUG
-//std::ofstream ex_time;
-//static struct timeval overhead_ctime;
-
-static inline void log_time(std::string type)
-{
-    gettimeofday(&overhead_ctime, NULL);
-    ex_time.open(filename, std::ios::app);
-    ex_time << type << "," << overhead_ctime.tv_sec << "," << overhead_ctime.tv_usec << "\n" << std::flush;
-    ex_time.close();
-}
-
-#endif
+#define TILE_SIZE 32
+#define BLOCK_SIZE 128
 
 #include "gpu_operations.h"
 void basicSgemm(char transa, char transb, int m, int n, int k, float alpha, const float *A, int lda, const float *B, int ldb, float beta, float *C, int ldc, int bucket);
 __global__ void mysgemm(int m, int n, int k, const float *A, const float *B, float *C);
 cudaStream_t streams[6];
+cudaMemPool_t memPools[6];
+
 int numcudastreams = 0;
 #define CUDA_CHECK_ERRORS(result)                    \
     {                                                \
@@ -75,6 +63,7 @@ void destroy_cuda_streams()
     for (int i = 0; i < numcudastreams; i++)
     {
         CUDA_CHECK_ERRORS(cudaStreamDestroy(streams[i]));
+        CUDA_CHECK_ERRORS(cudaMemPoolDestroy(memPools[i]));
     }
     std::printf("Cuda Streams Destroyed\n");
 
@@ -83,26 +72,26 @@ void destroy_cuda_streams()
 }
 int init_cuda_streams()
 {
-    cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync);
+    // cudaSetDeviceFlags(cudaDeviceScheduleSpin);
+    // cudaSetDeviceFlags(cudaDeviceDefaultStreamPerThread);
+    cudaSetDeviceFlags(cudaDeviceScheduleSpin);
     int leastPriority, greatestPriority;
+    int thresholdVal = ULLONG_MAX;
     CUDA_CHECK_ERRORS(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
     std::printf("Minimum Priority of Stream: %i \nMaximum Priority of Stream: %i \n", leastPriority, greatestPriority);
     int j = 0;
+    int device = 0;
+    cudaMemPoolProps poolProps = {};
+    poolProps.allocType = cudaMemAllocationTypePinned;
+    poolProps.location.id = device;
+    poolProps.location.type = cudaMemLocationTypeDevice;
     for (int i = leastPriority; i >= greatestPriority; --i)
     {
-        // if (i == 0)
-        //{
-        //    CUDA_CHECK_ERRORS(cudaStreamCreateWithPriority(&streams[j], cudaStreamNonBlocking, i));
-        // }
-        // else
-        //{
-        CUDA_CHECK_ERRORS(cudaStreamCreateWithPriority(&streams[j], cudaStreamDefault, i));
-        //}
+        CUDA_CHECK_ERRORS(cudaStreamCreateWithPriority(&streams[j], cudaStreamNonBlocking, i));
+        CUDA_CHECK_ERRORS(cudaMemPoolCreate(&memPools[j], &poolProps));
+        CUDA_CHECK_ERRORS(cudaMemPoolSetAttribute(memPools[j], cudaMemPoolAttrReleaseThreshold, (void *)&thresholdVal));
         j++;
     }
-    // CUDA_CHECK_ERRORS(cudaStreamCreateWithPriority(&streams[0], cudaStreamDefault, 0));
-    // CUDA_CHECK_ERRORS(cudaStreamCreateWithPriority(&streams[1], cudaStreamDefault, -5));
-    // j=2;
     numcudastreams = j;
     return j;
 }
@@ -169,14 +158,15 @@ void histogram(unsigned int *input, unsigned int *bins, unsigned int num_element
         global_hist_kernel<<<grid, block, 0, streams[bucket]>>>(input, bins, num_elements, num_bins);
     }
 }
-unsigned int* run_remote_hist( int in_h, int num_elements, int num_bins,  int bucket, bool *in_use){
-    
+unsigned int *run_remote_hist(int in_h, int num_elements, int num_bins, int bucket, bool *in_use)
+{
+
     printf("Running Remote HIST Kernel on Stream %i\n", bucket);
     cudaError_t cuda_ret;
     unsigned int *bins_d, *in_d;
     unsigned int *bins_h;
-    //unsigned int num_elements = 1000000, num_bins = 4096;
-    bins_h = (unsigned int*)malloc(num_bins*sizeof(unsigned int));
+    // unsigned int num_elements = 1000000, num_bins = 4096;
+    bins_h = (unsigned int *)malloc(num_bins * sizeof(unsigned int));
     cuda_ret = cudaMallocAsync((void **)&in_d, num_elements * sizeof(unsigned int), streams[bucket]);
     cuda_ret = cudaMallocAsync((void **)&bins_d, num_bins * sizeof(unsigned int), streams[bucket]);
     cuda_ret = cudaMemcpyAsync(in_d, &(in_h), num_elements * sizeof(unsigned int),
@@ -191,7 +181,6 @@ unsigned int* run_remote_hist( int in_h, int num_elements, int num_bins,  int bu
     cudaFreeAsync(bins_d, streams[bucket]);
     printf("Finshed Remote HIST Kernel on Stream %i\n", bucket);
     return bins_h;
-
 }
 
 void run_hist(struct hist_struct *shared_request, int bucket, bool *in_use)
@@ -255,20 +244,25 @@ void run_hist(struct hist_struct *shared_request, int bucket, bool *in_use)
 
 void run_sgemm(struct gemm_struct *shared_request, int bucket, bool *in_use)
 {
-    printf("Running GEMM Kernel on Stream %i\n", bucket);
-    pthread_mutex_lock(&shared_request->pthread_mutex);
+    int prio = 0;
+    //uint64_t thresholdVal = ULONG_MAX;
+    // it does not contain any active suballocations.
+    // checkCudaErrors(cudaDeviceGetDefaultMemPool(&memPool, dev));
+
+    // cudaStreamGetPriority(streams[bucket], &prio);
+    // printf("Running GEMM Kernel on Stream %i with priority %i\n", bucket, prio);
     struct gemm_request *active_request = &(shared_request->request);
     size_t A_sz = active_request->matArow * active_request->matAcol;
     size_t B_sz = active_request->matBrow * active_request->matBcol;
     size_t C_sz = active_request->matArow * active_request->matBcol;
     float *A_d, *B_d, *C_d;
     // float *output = (float*) malloc( sizeof(float)*C_sz );
-    CUDA_CHECK_ERRORS(cudaMallocAsync((void **)&A_d, A_sz * sizeof(float), streams[bucket]));
-    CUDA_CHECK_ERRORS(cudaMallocAsync((void **)&B_d, B_sz * sizeof(float), streams[bucket]));
-    CUDA_CHECK_ERRORS(cudaMallocAsync((void **)&C_d, C_sz * sizeof(float), streams[bucket]));
+    CUDA_CHECK_ERRORS(cudaMallocFromPoolAsync((void **)&A_d, A_sz * sizeof(float), memPools[bucket], streams[bucket]));
+    CUDA_CHECK_ERRORS(cudaMallocFromPoolAsync((void **)&B_d, B_sz * sizeof(float), memPools[bucket], streams[bucket]));
+    CUDA_CHECK_ERRORS(cudaMallocFromPoolAsync((void **)&C_d, C_sz * sizeof(float), memPools[bucket], streams[bucket]));
     CUDA_CHECK_ERRORS(cudaMemcpyAsync(A_d, active_request->A_h, A_sz * sizeof(float), cudaMemcpyHostToDevice, streams[bucket]));
     CUDA_CHECK_ERRORS(cudaMemcpyAsync(B_d, active_request->B_h, B_sz * sizeof(float), cudaMemcpyHostToDevice, streams[bucket]));
-    CUDA_CHECK_ERRORS(cudaMemset(C_d, 0, C_sz * sizeof(float)));
+    CUDA_CHECK_ERRORS(cudaMemsetAsync(C_d, 0, C_sz * sizeof(float), streams[bucket]));
     // cudaStreamSynchronize(streams[bucket]);
     basicSgemm('N', 'N', active_request->matArow, active_request->matBcol, active_request->matBrow, 1.0f, A_d, active_request->matArow, B_d, active_request->matBrow, 0.0f, C_d, active_request->matBrow, bucket);
     // CUDA_CHECK_ERRORS(cudaStreamSynchronize(streams[bucket]));
@@ -276,18 +270,27 @@ void run_sgemm(struct gemm_struct *shared_request, int bucket, bool *in_use)
     //&(shared_request->response.C_h) = output;
 #ifdef OVERHEAD_DEBUG
     logger->set_start();
-    //log_time("Waking Client");
-    //flush_buffer();
+    // log_time("Waking Client");
+    // flush_buffer();
 #endif
+
+    /*
+     echo 100 > /sys/kernel/debug/tegra_mce/rt_window_us
+     echo 20 > /sys/kernel/debug/tegra_mce/rt_fwd_progress_us
+     echo 0x7f > /sys/kernel/debug/tegra_mce/rt_safe_mask
+     echo -1 > /proc/sys/kernel/sched_rt_runtime_us
+
+     */
     shared_request->ready = true; // notify here before cudaFreeAsync
+    pthread_mutex_lock(&shared_request->pthread_mutex);
     pthread_cond_signal(&shared_request->pthread_cv);
     pthread_mutex_unlock(&shared_request->pthread_mutex);
-    
+
     *in_use = false;
     cudaFreeAsync(A_d, streams[bucket]);
     cudaFreeAsync(B_d, streams[bucket]);
     cudaFreeAsync(C_d, streams[bucket]);
-    printf("Finshed GEMM Kernel on Stream %i\n", bucket);
+    // printf("Finshed GEMM Kernel on Stream %i\n", bucket);
 }
 
 void basicSgemm(char transa, char transb, int m, int n, int k, float alpha, const float *A, int lda, const float *B, int ldb, float beta, float *C, int ldc, int bucket)

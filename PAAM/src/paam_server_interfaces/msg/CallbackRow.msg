@@ -1,0 +1,12 @@
+float64 period
+float64 cpu_time
+float64 gpu_time
+float64 tpu_time
+float64 deadline
+int32 chain_id
+int32 order
+int32 priority
+int32 cpu_id
+int32 executor_id
+int32 bucket
+int32 chain_length

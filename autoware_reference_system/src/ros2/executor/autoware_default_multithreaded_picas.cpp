@@ -32,36 +32,28 @@ int main(int argc, char *argv[])
   auto nodes = create_autoware_nodes<RclcppSystem, TimeConfig>();
 
 // rclcpp::executors::MultiThreadedExecutor executor;
-#ifdef PICAS
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 4);
 
-  rclcpp::executors::MultiThreadedExecutor executor;
-  #ifdef AAMF_PICAS
+  #ifdef PAAM_PICAS
   executor.enable_callback_priority();
-  executor.cpus ={2, 3, 4, 5, 6, 7};
+  executor.cpus ={3, 4, 5, 6};
   executor.rt_attr.sched_policy = SCHED_FIFO;
   executor.rt_attr.sched_priority = 90;
-  #endif
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS executor 1's rt-priority %d and CPU %d", executor.executor_priority, executor.executor_cpu);
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Executor: %ld", executor.get_number_of_threads());
-#else
+  #endif
 
-  rclcpp::executors::MultiThreadedExecutor executor;
 
-#endif
   for (auto &node : nodes)
   {
     executor.add_node(node);
   }
-#ifdef PICAS
   std::thread spinThread(&rclcpp::executors::MultiThreadedExecutor::spin, &executor);
   spinThread.join();
   for (auto &node : nodes)
   {
     executor.remove_node(node);
   }
-#else
-  executor.spin();
-#endif
   nodes.clear();
   rclcpp::shutdown();
 

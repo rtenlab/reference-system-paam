@@ -75,12 +75,13 @@ public:
     // RCLCPP_INFO(this->get_logger(), "Making Publishers");
     publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1000);
     remote_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("remote_response_topic", 1000);
+    admissions_publisher_ = this->create_publisher<aamf_server_interfaces::msg::AdmissionsResponse>("admissions_response_topic", 1000);
+    // std::this_thread::sleep_for(7000ms);
     subscription_ = this->create_subscription<aamf_server_interfaces::msg::GPURequest>(
         "request_topic", 1024, std::bind(&AamfServer::topic_callback, this, std::placeholders::_1));
     register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>(
-        "registration_topic", 10, std::bind(&AamfServer::register_client_callback, this, std::placeholders::_1));
-    admissions_sub_ = this->create_subscription<aamf_server_interfaces::msg::Admissions>("admissions_topic", 10, std::bind(&AamfServer::admissions_callback, this, std::placeholders::_1));
-    admissions_publisher_ = this->create_publisher<aamf_server_interfaces::msg::AdmissionsResponse>("admissions_response_topic", 1000);
+        "registration_topic", 1024, std::bind(&AamfServer::register_client_callback, this, std::placeholders::_1));
+    // admissions_sub_ = this->create_subscription<aamf_server_interfaces::msg::Admissions>("admissions_topic", 10, std::bind(&AamfServer::admissions_callback, this, std::placeholders::_1));
 
     // RCLCPP_INFO(this->get_logger(), "Initializing Cuda Streams");
     this->numCudaStreams = init_cuda_streams();
@@ -94,12 +95,15 @@ public:
     this->attach_logging_shm();
     // std::thread rm_t(AamfServer::runtime_monitor).detach();
   }
+
   void attach_logging_shm(void)
   {
+#ifdef OVERHEAD_DEBUG
     int shmid = 65535;
     int logging_id = shmget(shmid, sizeof(log_struct), 0666 | IPC_CREAT);
     logger = (log_struct *)shmat(logging_id, (void *)0, 0);
     logger->set_filename();
+#endif
     // pthread_mutexattr_t psharedm;
     // (void)pthread_mutexattr_init(&psharedm);
     // (void)pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
@@ -119,12 +123,14 @@ public:
       pthread_mutex_lock(&worker_mutex[bucket]);
       pthread_cond_signal(&cv[bucket]);
       pthread_mutex_unlock(&worker_mutex[bucket]);
+      
     }
     // std::lock_guard<std::mutex> cv_lk(this->worker_mutex[cv_worker]);
     // this->cv[cv_worker].notify_one();
     pthread_mutex_lock(&worker_mutex[cv_worker]);
     pthread_cond_signal(&cv[cv_worker]);
     pthread_mutex_unlock(&worker_mutex[cv_worker]);
+
     // std::lock_guard<std::mutex> tpu_lk(this->worker_mutex[tpu_worker]);
     // this->cv[tpu_worker].notify_one();
     pthread_mutex_lock(&worker_mutex[tpu_worker]);
@@ -133,7 +139,12 @@ public:
     // this->clean_shared_memory();
     // RCLCPP_INFO(this->get_logger(), "Destroying Cuda Streams");
     destroy_cuda_streams();
-
+    this->clean_shared_memory();
+    for(int i = 0; i < 8; i++){
+      pthread_mutex_destroy(&worker_mutex[i]);
+      pthread_cond_destroy(&cv[i]);
+    }
+    std::printf("CVs and Mutexes destroyed\n");
     // ex_time.close();
   }
 
@@ -224,7 +235,7 @@ private:
   void clean_working_queues(std::string callback_name, callback_key_struct *delete_struct)
   {
     int stream_id = delete_struct->bucket;                                            // access the appropriate queue
-    //stream_queue_mutex[stream_id].lock();                                             // lock the stream queue
+    stream_queue_mutex[stream_id].lock();                                             // lock the stream queue
     std::vector<std::shared_ptr<aamf_server_interfaces::msg::GPURequest>> queue_list; // temporary list
     int i = 0;
     while (!stream_queues[stream_id].empty()) // while we access alll requests in the worker's queue
@@ -276,11 +287,26 @@ private:
   inline void clean_shared_memory(void)
   {
     // callback_key_map_mutex.lock();
-    for (const auto &[callback_name, key_list] : callback_key_map)
+    // for (auto &[callback_name, key_list] : callback_key_map)
+    if (callback_key_map.empty())
     {
-      detach_mem_from_callback_name(callback_name);
+      printf("Shared Memory Cleaned\n");
+      return;
+    }
+    for (auto key = this->callback_key_map.begin(); key != this->callback_key_map.end();)
+    {
+      printf("Detaching memory from callback %s\n", key->first.c_str());
+      if (!detach_mem_from_callback_name(key->first))
+      {
+        key = this->callback_key_map.erase(key);
+      }
+      else
+      {
+        key++;
+      }
     }
     this->callback_key_map.clear();
+    printf("Shared Memory Cleaned\n");
     // callback_key_map_mutex.unlock();
   }
 
@@ -327,11 +353,15 @@ private:
         continue;
       }
 
-      RCLCPP_INFO(this->get_logger(), "Popping Request From Queue");
+      // RCLCPP_INFO(this->get_logger(), "Popping Request From Queue");
       auto active_request = stream_queues[cv_worker].top();
       stream_queues[cv_worker].pop();
       stream_queue_mutex[cv_worker].unlock();
       // callback_key_map_mutex.lock();
+      if (!rclcpp::ok())
+      {
+        break;
+      }
       std::string callback_uuid = this->toHexString(active_request->uuid);
 
       // std::string callback_uuid(std::begin(active_request->uuid), std::end(active_request->uuid));
@@ -368,6 +398,7 @@ private:
                     callback_uuid.c_str());
       }
     }
+    pthread_exit(NULL);
     // RCLCPP_INFO(this->get_logger(), "Destroying OpenCV Worker Thread");
   }
 
@@ -394,6 +425,10 @@ private:
       auto active_request = stream_queues[tpu_worker].top();
       stream_queues[tpu_worker].pop();
       stream_queue_mutex[tpu_worker].unlock();
+      if (!rclcpp::ok())
+      {
+        break;
+      }
       // callback_key_map_mutex.lock();
       std::string callback_uuid = this->toHexString(active_request->uuid);
       // std::string callback_uuid(std::begin(active_request->uuid), std::end(active_request->uuid));
@@ -420,6 +455,7 @@ private:
       }
     }
     // RCLCPP_INFO(this->get_logger(), "Destroying TPU Worker Thread");
+    pthread_exit(NULL);
   }
 
   void gpu_worker_thread(int stream_id)
@@ -440,11 +476,11 @@ private:
         pthread_mutex_lock(&worker_mutex[stream_id]);
         pthread_cond_wait(&cv[stream_id], &worker_mutex[stream_id]);
         pthread_mutex_unlock(&worker_mutex[stream_id]);
-          //logger->set_end();
-      //logger->log_latency("Worker Awakening");
-        // std::unique_lock<std::mutex> lk(worker_mutex[stream_id]);
-        // cv[stream_id].wait(lk);
-        // lk.unlock();
+        // logger->set_end();
+        // logger->log_latency("Worker Awakening");
+        //  std::unique_lock<std::mutex> lk(worker_mutex[stream_id]);
+        //  cv[stream_id].wait(lk);
+        //  lk.unlock();
         continue;
       }
 #ifdef OVERHEAD_DEBUG
@@ -454,7 +490,7 @@ private:
 #endif
       // stream_queue_mutex[stream_id].lock();
 
-      RCLCPP_INFO(this->get_logger(), "Popping Request From Queue");
+      // RCLCPP_INFO(this->get_logger(), "Popping Request From Queue");
       auto active_request = stream_queues[stream_id].top();
       if (active_request == nullptr)
       {
@@ -462,6 +498,10 @@ private:
       }
       stream_queues[stream_id].pop();
       stream_queue_mutex[stream_id].unlock();
+      if (!rclcpp::ok())
+      {
+        break;
+      }
 #ifdef OVERHEAD_DEBUG
       logger->set_end();
       logger->log_latency("Request Popped");
@@ -501,12 +541,12 @@ private:
           key->data_in_use = true;
           run_hist(key->hist_request, custom_stream_id, &key->data_in_use); // if prioritized cuda stream, run independently
         }
-        RCLCPP_INFO(this->get_logger(), "Request from %s Succeeded", callback_uuid.c_str());
+        // RCLCPP_INFO(this->get_logger(), "Request from %s Succeeded", callback_uuid.c_str());
 
         break;
 
       case 1: // this is the GEMM kernel
-        RCLCPP_INFO(this->get_logger(), "Running GEMM Kernel");
+        // RCLCPP_INFO(this->get_logger(), "Running GEMM Kernel");
 
         if (custom_stream_id == 0)
         {
@@ -518,7 +558,7 @@ private:
           key->data_in_use = true;
           run_sgemm(key->gemm_request, custom_stream_id, &key->data_in_use);
         }
-        RCLCPP_INFO(this->get_logger(), "Request from %s Succeeded", callback_uuid.c_str());
+        // RCLCPP_INFO(this->get_logger(), "Request from %s Succeeded", callback_uuid.c_str());
         break;
       case 4: // this is the VEC kernel
         // RCLCPP_INFO(this->get_logger(), "Running VEC Kernel");
@@ -556,11 +596,7 @@ private:
                     callback_uuid.c_str());
       }
     }
-    if (stream_id == 0)
-    {
-      // RCLCPP_INFO(this->get_logger(), "Cleaning Up Shared Memory");
-      //  this->clean_shared_memory();
-    }
+    pthread_exit(NULL);
     // RCLCPP_INFO(this->get_logger(), "Destroying Worker Thread: %i", stream_id);
   }
   pthread_t worker_threads[8];
@@ -580,8 +616,11 @@ private:
       sched_param sch;
       cpu_set_t cpuset;
       CPU_ZERO(&cpuset);
-      CPU_SET(0, &cpuset);
-      sch.sched_priority = 91 + i;
+      CPU_SET(3, &cpuset);
+      CPU_SET(4, &cpuset);
+      // CPU_SET(5, &cpuset);
+      // CPU_SET(6, &cpuset);
+      sch.sched_priority = 94 + i;
       if (pthread_setschedparam(worker_threads[i], SCHED_FIFO, &sch))
       {
         std::cout << "Failed to setschedparam: " << std::strerror(errno) << '\n';
@@ -596,29 +635,39 @@ private:
     sched_param sch;
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset);
+    CPU_SET(3, &cpuset);
+    CPU_SET(4, &cpuset);
+    // CPU_SET(5, &cpuset);
+    // CPU_SET(6, &cpuset);
     sch.sched_priority = 90;
-    if(pthread_setschedparam(worker_threads[6], SCHED_FIFO, &sch)){
+    if (pthread_setschedparam(worker_threads[6], SCHED_FIFO, &sch))
+    {
       std::cout << "Failed to setschedparam: " << std::strerror(errno) << '\n';
     }
-    if(pthread_setaffinity_np(worker_threads[6], sizeof(cpuset), &cpuset)){
+    if (pthread_setaffinity_np(worker_threads[6], sizeof(cpuset), &cpuset))
+    {
       std::cout << "Failed to setcpuaffinity " << std::strerror(errno) << '\n';
     }
     pthread_detach(worker_threads[6]);
 
     pthread_create(&worker_threads[7], nullptr, tpu_worker_thread_wrapper, new ThreadArg{this, 7});
     CPU_ZERO(&cpuset);
-    CPU_SET(1, &cpuset);
+    // CPU_SET(3, &cpuset);
+    CPU_SET(4, &cpuset);
+    // CPU_SET(5, &cpuset);
+    // CPU_SET(6, &cpuset);
     sch.sched_priority = 99;
-    if(pthread_setschedparam(worker_threads[7], SCHED_FIFO, &sch)){
+    if (pthread_setschedparam(worker_threads[7], SCHED_FIFO, &sch))
+    {
       std::cout << "Failed to setschedparam: " << std::strerror(errno) << '\n';
     }
-    if(pthread_setaffinity_np(worker_threads[7], sizeof(cpuset), &cpuset)){
+    if (pthread_setaffinity_np(worker_threads[7], sizeof(cpuset), &cpuset))
+    {
       std::cout << "Failed to setcpuaffinity " << std::strerror(errno) << '\n';
     }
     pthread_detach(worker_threads[7]);
-    //std::thread{&AamfServer::opencv_worker, this}.detach();
-    //std::thread{&AamfServer::tpu_worker, this}.detach();
+    // std::thread{&AamfServer::opencv_worker, this}.detach();
+    // std::thread{&AamfServer::tpu_worker, this}.detach();
   }
   static void *opencv_worker_thread_wrapper(void *arg)
   {
@@ -627,14 +676,14 @@ private:
     delete args;
     return nullptr;
   }
- static void *tpu_worker_thread_wrapper(void *arg)
+  static void *tpu_worker_thread_wrapper(void *arg)
   {
     ThreadArg *args = (ThreadArg *)arg;
     args->server->tpu_worker();
     delete args;
     return nullptr;
   }
-  
+
   void topic_callback(aamf_server_interfaces::msg::GPURequest::SharedPtr request)
   {
 #ifdef OVERHEAD_DEBUG
@@ -644,10 +693,11 @@ private:
     // log_start();
     logger->set_start();
 #endif
-    // std::thread{ std::bind(&AamfServer::enqueue, this, request) }.detach();
-    // auto msg = std::make_shared<aamf_server_interfaces::msg::GPURequest>();
+    // RCLCPP_INFO(this->get_logger(), "Request from %s Received", this->toHexString(request->uuid).c_str());
+    //  std::thread{ std::bind(&AamfServer::enqueue, this, request) }.detach();
+    //  auto msg = std::make_shared<aamf_server_interfaces::msg::GPURequest>();
     //*msg = *request;
-    // this->enqueue(msg);
+    //  this->enqueue(msg);
     this->enqueue(request); // Throw pointer to request into queue
   }
   // bool chainset_addition_schedulable(std::vector<callback_row> incoming)
@@ -774,7 +824,7 @@ private:
     int min_prio = 0, max_prio = 70;
     if (chain_priority > max_prio)
     {
-      return num_buckets -1;
+      return num_buckets - 1;
     }
     else if (chain_priority < min_prio)
     {
@@ -971,7 +1021,7 @@ private:
     // }
     std::string callback_uuid = this->toHexString(request->uuid);
     RCLCPP_INFO(this->get_logger(), "Registration Request Received for Callback:  %s",
-    callback_uuid.c_str());
+                callback_uuid.c_str());
     if (request->should_register) // If this is a creation request
     {
       pthread_mutexattr_t psharedm;
@@ -1072,13 +1122,13 @@ private:
           int reduction_id = shmget(key, sizeof(struct reduction_struct), 0666 | IPC_CREAT);
           if (reduction_id == -1)
           {
-            // RCLCPP_INFO(this->get_logger(), "Shmget failed, errno: %i, key: %i, hist_id: %i", errno, key, reduction_id);
+            RCLCPP_INFO(this->get_logger(), "Shmget failed, errno: %i, key: %i, hist_id: %i", errno, key, reduction_id);
           }
           uuid_keys.ids.push_back(reduction_id);
           uuid_keys.reduction_request = (struct reduction_struct *)shmat(reduction_id, (void *)0, 0);
           if (uuid_keys.reduction_request == (void *)-1 || uuid_keys.reduction_request == nullptr)
           {
-            // RCLCPP_INFO(this->get_logger(), "Shmat failed, errno: %i", errno);
+            RCLCPP_INFO(this->get_logger(), "Shmat failed, errno: %i", errno);
           }
           (void)pthread_mutex_init(&(uuid_keys.reduction_request->pthread_mutex), &psharedm);
           (void)pthread_cond_init(&(uuid_keys.reduction_request->pthread_cv), &psharedc);
@@ -1140,6 +1190,8 @@ private:
       // std::string str(std::begin(arr), std::end(arr));
       this->callback_key_map.insert(std::make_pair(callback_uuid, uuid_keys));
       // callback_key_map_mutex.unlock();
+      RCLCPP_INFO(this->get_logger(), "Registration Successful for Callback:  %s",
+                  callback_uuid.c_str());
       publisher_->publish(response);
     }
     else // DELETE MEM REGION AND ERASE KEY -- Call this deregistration
@@ -1185,15 +1237,10 @@ private:
 
   inline void enqueue(aamf_server_interfaces::msg::GPURequest::SharedPtr shared_request)
   {
-    RCLCPP_INFO(this->get_logger(), "Enqueueing GPU Access Request");
     //  Determine Bucket
     bool notify = false;
-    // int bucket = this->find_bucket_for_callback_name(shared_request->callback_name.data);
-    // std::string callback_uuid(std::begin(shared_request->uuid), std::end(shared_request->uuid));
     std::string callback_uuid = this->toHexString(shared_request->uuid);
-
     int bucket = this->find_bucket_for_callback_name(callback_uuid);
-
     if (shared_request->open_cv == true)
     {
       bucket = 6;
@@ -1202,68 +1249,39 @@ private:
     {
       bucket = 7;
     }
-    // bucket = this->numCudaStreams - 1;
-    RCLCPP_INFO(this->get_logger(), "Enqueueing Request from Callback %s with executor PID %i to Bucket %i",
-    callback_uuid.c_str(), shared_request->pid, bucket);
-
-    stream_queue_mutex[bucket].lock(); // queue mutex
-    // while (stream_queue_mutex[bucket].try_lock() != 0)
-    ///{
-    //};
-
-    // if (stream_queues[bucket].empty())
-    //{
-    //   notify = true;
-    // }
+    // RCLCPP_INFO(this->get_logger(), "Enqueueing Callback: %s to Bucket: %i", callback_uuid.c_str(), bucket);
+    stream_queue_mutex[bucket].lock();          // queue mutex
     stream_queues[bucket].push(shared_request); // Push Goal Handle to Queue
+    stream_queue_mutex[bucket].unlock();        // queue mutex
+
 #ifdef OVERHEAD_DEBUG
     logger->set_end();
     logger->log_latency("Request Queueing");
-    // log_end();
-    // log_latency("Request Queued");
-    //  log_time("Request Queued");
-#endif
-    //    //RCLCPP_INFO(this->get_logger(), "Top item in queue %i is a request from callback %s with priority %i", bucket,
-    //    stream_queues[bucket].top()->callback_name.data.c_str(), stream_queues[bucket].top()->chain_priority);
-    // print_pq(bucket);
-    stream_queue_mutex[bucket].unlock(); // queue mutex
-
-    // if (notify)
-    //{
-    //  std::lock_guard<std::mutex> lk(worker_mutex[bucket]);
-    //  cv[bucket].notify_one();
-    // pthread_mutex_lock(&worker_mutex[bucket]);
-    pthread_cond_signal(&cv[bucket]);
     logger->set_start();
-
-    // pthread_mutex_unlock(&worker_mutex[bucket]);
-
-    //}
-    // else
-    //{
-    // logger->set_start();
-    //}
+#endif
+    pthread_cond_signal(&cv[bucket]);
   }
   // Given the PID destroy and detach from all memory regions as well as delete the entry from the key map
   // inline void detach_mem_from_callback_name(pid_t pid)
   inline int detach_mem_from_callback_name(std::string callback_name)
   {
-    // RCLCPP_INFO(this->get_logger(), "Deleting Memory For %s", callback_name.c_str());
+    RCLCPP_INFO(this->get_logger(), "Deleting Memory For %s", callback_name.c_str());
     //  go thru key map and mark all regions for destruction and detach from memory
     if (callback_key_map.find(callback_name) == callback_key_map.end())
     {
-      // RCLCPP_INFO(this->get_logger(), "Callback Name %s not found in key_map", callback_name.c_str());
+      RCLCPP_INFO(this->get_logger(), "Callback Name %s not found in key_map", callback_name.c_str());
       return -1;
     }
     auto delete_struct = this->callback_key_map.find(callback_name);
     if (delete_struct->second.data_in_use)
     {
-      // RCLCPP_INFO(this->get_logger(), "Data In Use For %s", callback_name.c_str());
+      RCLCPP_INFO(this->get_logger(), "Data In Use For %s", callback_name.c_str());
       return -1;
     }
-    clean_working_queues(callback_name, &delete_struct->second);
+    //clean_working_queues(callback_name, &delete_struct->second);
     if (delete_struct->second.gemm_request != nullptr)
     {
+      pthread_mutex_trylock(&delete_struct->second.gemm_request->pthread_mutex);
       // pthread_mutex_lock(&delete_struct->second.gemm_request->pthread_mutex);
       delete_struct->second.gemm_request->ready = true;
       pthread_cond_signal(&delete_struct->second.gemm_request->pthread_cv);
@@ -1273,6 +1291,7 @@ private:
     }
     if (delete_struct->second.hist_request != nullptr)
     {
+      pthread_mutex_trylock(&delete_struct->second.hist_request->pthread_mutex);
       // pthread_mutex_lock(&delete_struct->second.hist_request->pthread_mutex);
       delete_struct->second.hist_request->ready = true;
       pthread_cond_signal(&delete_struct->second.hist_request->pthread_cv);
@@ -1282,6 +1301,7 @@ private:
     }
     if (delete_struct->second.vec_request != nullptr)
     {
+      pthread_mutex_trylock(&delete_struct->second.vec_request->pthread_mutex);
       delete_struct->second.vec_request->ready = true;
       pthread_cond_signal(&delete_struct->second.vec_request->pthread_cv);
       pthread_mutex_unlock(&delete_struct->second.vec_request->pthread_mutex);
@@ -1290,6 +1310,7 @@ private:
     }
     if (delete_struct->second.reduction_request != nullptr)
     {
+      pthread_mutex_trylock(&delete_struct->second.reduction_request->pthread_mutex);
       delete_struct->second.reduction_request->ready = true;
       pthread_cond_signal(&delete_struct->second.reduction_request->pthread_cv);
       pthread_mutex_unlock(&delete_struct->second.reduction_request->pthread_mutex);
@@ -1298,6 +1319,7 @@ private:
     }
     if (delete_struct->second.tpu_request != nullptr)
     {
+      pthread_mutex_trylock(&delete_struct->second.tpu_request->pthread_mutex);
       delete_struct->second.tpu_request->ready = true;
       pthread_cond_signal(&delete_struct->second.tpu_request->pthread_cv);
       pthread_mutex_unlock(&delete_struct->second.tpu_request->pthread_mutex);
@@ -1397,12 +1419,12 @@ private:
         continue;
       }
 
-      for (auto key = this->callback_key_map.begin(); key != this->callback_key_map.end();)
+      for (auto key = this->callback_key_map.begin(); key != this->callback_key_map.end() && rclcpp::ok();)
       {
         std::string callback_name = key->first;
         auto pid = key->second.pid;
         std::string pid_key = "/proc/" + std::to_string(pid);
-        if (stat(pid_key.c_str(), &sts) == -1 && errno == ENOENT)
+        if (stat(pid_key.c_str(), &sts) == -1 && errno == ENOENT && rclcpp::ok())
         {
           RCLCPP_INFO(this->get_logger(),
                       "Runtime_Monitor: Client PID %s associated with callback %s does not exist anymore, detaching "
@@ -1424,8 +1446,9 @@ private:
       }
     }
     // callback_key_map_mutex.unlock();
-    this->clean_shared_memory();
-    // RCLCPP_INFO(this->get_logger(), "Runtime Monitor Thread is Dead");
+    // this->clean_shared_memory();
+    pthread_exit(NULL);
+    RCLCPP_INFO(this->get_logger(), "Runtime Monitor Thread is Dead");
   }
 
   void kill_timer(void)
@@ -1471,6 +1494,8 @@ private:
   }
   void invoke_tpu(struct tpu_struct *shared_request, int bucket, bool *in_use)
   {
+    // printf("Running TPU\n");
+    pthread_mutex_lock(&shared_request->pthread_mutex);
     std::memcpy(interpreter->typed_input_tensor<uint8_t>(0), &shared_request->request.image[0], 224 * 224 * 3);
     // std::copy(&shared_request->request.image[0], &shared_request->request.image[224*224*3 -1], interpreter->typed_input_tensor<uint8_t>(0));
     //  Run inference.
@@ -1489,9 +1514,11 @@ private:
       shared_request->response.result[i].second = results[i].second;
     }
     shared_request->ready = true;
+    *in_use = false;
     pthread_cond_signal(&shared_request->pthread_cv);
     pthread_mutex_unlock(&shared_request->pthread_mutex);
-    *in_use = false;
+
+    // printf("TPU Operation Successful\n");
   }
   void use_tpu(void)
   {
@@ -1555,6 +1582,17 @@ private:
 int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(3, &cpuset);
+  CPU_SET(4, &cpuset);
+  // CPU_SET(5, &cpuset);
+  // CPU_SET(6, &cpuset);
+
+  sched_param sch;
+  sch.sched_priority = 99;
+  pthread_setschedparam(pthread_self(), SCHED_FIFO, &sch);
+
   // std::vector<callback_row> data;
   //   callback_row r1(220, 1, 2, 220, 0, 1, 98, 0, 0, 0);
   //   callback_row r2(0, 1, 2, 0, 0, 2, 99, 0, 0, 0);
@@ -1574,16 +1612,24 @@ int main(int argc, char *argv[])
   //       printf("Chainset is not Schedulable\n");
   //   }
   auto gpu_server = std::make_shared<AamfServer>();
-  rclcpp::executors::SingleThreadedExecutor exec1;
+  // rclcpp::executors::SingleThreadedExecutor exec1;
+  rclcpp::executors::MultiThreadedExecutor exec1(rclcpp::ExecutorOptions(), 2);
   exec1.enable_callback_priority();
-  exec1.set_executor_priority_cpu(99, 0);
+  exec1.cpus = {3, 4};
+  exec1.rt_attr.sched_policy = SCHED_FIFO;
+  exec1.rt_attr.sched_priority = 99;
+  // exec1.set_executor_priority_cpu(99, 0);
   exec1.add_node(gpu_server);
   exec1.set_callback_priority(gpu_server->subscription_, 95);
   exec1.set_callback_priority(gpu_server->register_sub_, 98);
   exec1.set_callback_priority(gpu_server->admissions_sub_, 99);
   // RCLCPP_INFO(gpu_server->get_logger(), "Server Instantiated");
-  std::thread spinThread1(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &exec1);
-  spinThread1.join();
+  // std::thread spinThread1(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &exec1);
+  std::thread spinThread1(&rclcpp::executors::MultiThreadedExecutor::spin, &exec1);
+  if (spinThread1.joinable())
+  {
+    spinThread1.join();
+  }
   exec1.remove_node(gpu_server);
   // RCLCPP_INFO(gpu_server->get_logger(), "Server Killed");
   rclcpp::shutdown();

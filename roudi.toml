@@ -4,11 +4,11 @@ version = 1
 [[segment]]
 
 [[segment.mempool]]
-size = 64
-count = 10000
+size = 72
+count = 100000
 
 [[segment.mempool]]
-size = 128
+size = 360
 count = 100000
 
 [[segment.mempool]]

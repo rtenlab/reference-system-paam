@@ -6,7 +6,6 @@
 #include "aamf_server_interfaces/msg/admissions.hpp"
 
 #include "aamf_structs.h"
-#define OVERHEAD_DEBUG
 #ifdef OVERHEAD_DEBUG
     std::ofstream ex_time;
     static struct timeval overhead_ctime;

@@ -108,6 +108,7 @@ ExternalProject_Add(tf
 
 set(TF_ET_SRC_LIB "${CMAKE_SOURCE_DIR}/libedgetpu/direct/${EDGE_ARCH}/libedgetpu.so.1.0")
 set(TF_LITE_LIB "${CMAKE_BINARY_DIR}/libtensorflow-lite.a")
+
 include_directories(${CMAKE_SOURCE_DIR}/)
 include_directories(${CMAKE_SOURCE_DIR}/src/)
 include_directories(${CMAKE_SOURCE_DIR}/include/)
@@ -120,6 +121,7 @@ include_directories(${CMAKE_BINARY_DIR}/glog_install/include)
 link_directories(${CMAKE_BINARY_DIR})
 link_directories(${CMAKE_BINARY_DIR}/absl_install/lib)
 link_directories(${CMAKE_BINARY_DIR}/glog_install/lib)
+include_directories(${CUDA_INCLUDE_DIRS})
 
 add_library(model_utils
   src/model_utils.cc
@@ -141,7 +143,10 @@ target_link_libraries(aamf_server
   cudalib
   admissions
   model_utils
-  ${TF_LITE_LIB} ${TF_ET_SRC_LIB}
+  ${TF_LITE_LIB} 
+  ${TF_ET_SRC_LIB}
+  ${CUDA_LIBRARIES}
+  cudart
   )
 add_dependencies(aamf_server model_utils tf)
 target_link_libraries(${PROJECT_NAME}

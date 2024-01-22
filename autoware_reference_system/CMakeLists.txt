@@ -1,7 +1,18 @@
 cmake_minimum_required(VERSION 3.5)
 project(autoware_reference_system)
 find_package(OpenCV REQUIRED)
+set(CMAKE_TF_DIR, /home/paam/Research/build/reference_system/)
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${CMAKE_SOURCE_DIR}/)
+include_directories(${CMAKE_SOURCE_DIR}/src/)
+include_directories(${CMAKE_SOURCE_DIR}/include/)
+include_directories(${CMAKE_SOURCE_DIR}/libedgetpu/)
+include_directories(/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/)
+include_directories(/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/c/)
+include_directories(/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/absl/)
+include_directories(/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/flatbuffers/include/)
+include_directories(/home/paam/Research/reference-system-paam/build/reference_system/glog_install/include)
+include_directories(${CUDA_INCLUDE_DIRS})
 
 # pass in via command line or set to True to test if platform is supported
 message(STATUS "TEST_PLATFORM=${TEST_PLATFORM}")
@@ -36,7 +47,7 @@ else()
 endif()
 
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -46,11 +57,14 @@ endif()
 if(${PICAS})
   add_compile_options(-DPICAS)
 endif()
-if(${AAMF})
-  add_compile_options(-DAAMF)
+if(${PAAM})
+  add_compile_options(-DPAAM)
 endif()
-if(${AAMF_PICAS})
-  add_compile_options(-DAAMF_PICAS)
+if(${TPU})
+  add_compile_options(-DTPU)
+endif()
+if(${PAAM_PICAS})
+  add_compile_options(-DPAAM_PICAS)
 endif()
 if(${DIRECT_INVOCATION})
   add_compile_options(-DDIRECT_INVOCATION)
@@ -59,20 +73,35 @@ endif()
 #target_link_libraries(autoware_reference_system cudalib)
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
-
+link_directories(/home/paam/Research/reference-system-paam/build/reference_system/)
+link_directories(/home/paam/Research/reference-system-paam/build/reference_system/absl_install/lib)
+link_directories(/home/paam/Research/reference-system-paam/build/reference_system/glog_install/lib)
 # Single Threaded Executor
 ament_auto_add_executable(autoware_default_singlethreaded
-  src/ros2/executor/autoware_default_singlethreaded.cpp
+  src/ros2/executor/autoware_default_singlethreaded.cpp 
+  /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+  /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
 )
+
+ament_auto_add_executable(autoware_default_singlethreaded_multi_executors
+  src/ros2/executor/autoware_default_singlethreaded_multi_executors.cpp
+  /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
+)
+
 
 # Static Single Threaded Executor
 ament_auto_add_executable(autoware_default_staticsinglethreaded
   src/ros2/executor/autoware_default_staticsinglethreaded.cpp
+  /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
 )
 
 # Multi Threaded Executor
 ament_auto_add_executable(autoware_default_multithreaded
   src/ros2/executor/autoware_default_multithreaded.cpp
+  /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
 )
 
 # Number Cruncher Benchmark
@@ -85,15 +114,21 @@ if(${PICAS})
   # PiCAS Single Threaded Executor 
   ament_auto_add_executable(autoware_default_singlethreaded_picas_single_executor
     src/ros2/executor/autoware_default_singlethreaded_picas_single_executor.cpp
+    /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
   )
 
   # PICAS Single Threaded Executor
   ament_auto_add_executable(autoware_default_singlethreaded_picas_multi_executors
     src/ros2/executor/autoware_default_singlethreaded_picas_multi_executors.cpp
+    /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+/home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
   )
 
   ament_auto_add_executable(autoware_default_multithreaded_picas
     src/ros2/executor/autoware_default_multithreaded_picas.cpp
+    /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/make/downloads/fft2d/fftsg.c
+    /home/paam/Research/reference-system-paam/build/reference_system/tensorflow/src/tf/tensorflow/lite/tools/optimize/sparsity/format_converter.cc
   )
 endif()
 
@@ -133,25 +168,26 @@ if(${BUILD_TESTING})
   if(${RUN_BENCHMARK})
     # Add executables here to test
     set(TEST_TARGETS
-      autoware_default_singlethreaded
-      autoware_default_staticsinglethreaded
-      autoware_default_multithreaded
+      #autoware_default_singlethreaded
+      #autoware_default_staticsinglethreaded
+      #autoware_default_multithreaded
       autoware_default_singlethreaded_picas_single_executor
       autoware_default_singlethreaded_picas_multi_executors
+      autoware_default_multithreaded_picas
       #autoware_default_custom
     )
 
     # Add more run times here (time to run traces for)
     set(RUN_TIMES
-      5
+      #5
       # 10
       # 30
-      # 60
+      60
     )
 
     # Add more trace types here
     # had to seperate out traces due to dropped events
-    # see https://github.com/ros-realtime/reference-system/pull/33#issuecomment-928264240
+    # see https://github.com/ros-realtime/reference_system/pull/33#issuecomment-928264240
     set(TRACE_TYPES
       callback  # uses ros2_tracing, LTTng
       memory    # uses psrecord
@@ -185,7 +221,7 @@ if(${BUILD_TESTING})
     endif()
 
     # include cmake functions to use later on
-    include_directories(/home/aamf/Research/reference-system/AAMF/include)
+    include_directories(/home/paam/Research/reference_system/PAAM/include)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_requirements.cmake)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_traces.cmake)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_report.cmake)

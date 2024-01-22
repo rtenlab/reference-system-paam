@@ -34,7 +34,7 @@ int main(int argc, char * argv[])
   auto nodes = create_autoware_nodes<RclcppSystem, TimeConfig>();
 
   rclcpp::executors::SingleThreadedExecutor executor;
-  #ifdef AAMF_PICAS
+  #ifdef PAAM_PICAS
   executor.enable_callback_priority();
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "PiCAS priority-based callback scheduling: %s", executor.callback_priority_enabled ? "Enabled" : "Disabled");
 
@@ -44,8 +44,9 @@ int main(int argc, char * argv[])
   for (auto & node : nodes) {
     executor.add_node(node);
   }
-  executor.spin_rt();
 
+  std::thread spinThread1(&rclcpp::executors::SingleThreadedExecutor::spin_rt, &executor);
+  spinThread1.join();
   nodes.clear();
   rclcpp::shutdown();
 
