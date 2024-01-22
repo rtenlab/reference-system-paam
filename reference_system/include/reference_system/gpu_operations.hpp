@@ -29,8 +29,7 @@
 #include "tensorflow/lite/interpreter.h"
 #include "tensorflow/lite/model.h"
 #include "tensorflow/lite/kernels/register.h"
-// void run_sgemm(float *A_h, float *B_h, float *C_h, size_t A_sz, size_t B_sz, size_t C_sz, unsigned int matArow, unsigned int matAcol, unsigned int matBrow, unsigned int matBcol);
-// void run_hist(unsigned int* in_h, unsigned int* bins_h, unsigned int num_elements, unsigned int num_bins);
+
 class tpu_operator
 {
     public:
