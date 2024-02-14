@@ -22,8 +22,8 @@
 #include "reference_system/sample_management.hpp"
 #include "reference_system/msg_types.hpp"
 
-#ifdef AAMF
-#include "reference_system/aamf_wrappers.hpp"
+#ifdef PAAM
+#include "reference_system/paam_wrappers.hpp"
 #endif
 #ifdef DIRECT_INVOCATION
 #include "reference_system/gpu_operations.hpp"
@@ -40,22 +40,22 @@ namespace nodes
           : Node(settings.node_name)
       {
 
-#ifdef AAMF
-        this->request_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024);
-        this->reg_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024);
+#ifdef PAAM
+        this->request_publisher_ = this->create_publisher<paam_server_interfaces::msg::GPURequest>("request_topic", 1024);
+        this->reg_publisher_ = this->create_publisher<paam_server_interfaces::msg::GPURegister>("registration_topic", 1024);
         //if(settings.node_name.compare("FrontLidarDriver") == 0){
        // std::this_thread::sleep_for(std::chrono::milliseconds(7000));
         //}
-        this->aamf_client_ = std::make_shared<aamf_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_);
-        this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, std::bind(&Sensor::handshake_callback, this, std::placeholders::_1));
-        /*this->register_sub_ = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
-                                                                                                          { this->aamf_client_->handshake_callback(msg); });
+        this->paam_client_ = std::make_shared<paam_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_);
+        this->register_sub_ = this->create_subscription<paam_server_interfaces::msg::GPURegister>("handshake_topic", 1024, std::bind(&Sensor::handshake_callback, this, std::placeholders::_1));
+        /*this->register_sub_ = this->create_subscription<paam_server_interfaces::msg::GPURegister>("handshake_topic", 100, [this](const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
+                                                                                                          { this->paam_client_->handshake_callback(msg); });
         */
         // register_sub_->callback_priority = 99;
 
-        aamf_client_->register_subscriber(register_sub_);
-        aamf_client_->register_sub_->callback_priority = 99;
-        aamf_client_->send_handshake();
+        paam_client_->register_subscriber(register_sub_);
+        paam_client_->register_sub_->callback_priority = 99;
+        paam_client_->send_handshake();
 #endif
 #ifdef DIRECT_INVOCATION
         di_gemm = std::make_shared<gemm_operator>();
@@ -71,10 +71,10 @@ namespace nodes
       }
 
     private:
-#ifdef AAMF
-      void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+#ifdef PAAM
+      void handshake_callback(const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
       {
-        aamf_client_->handshake_callback(msg);
+        paam_client_->handshake_callback(msg);
       }
 #endif
       void timer_callback()
@@ -82,8 +82,8 @@ namespace nodes
         uint64_t timestamp = now_as_int();
         auto message = publisher_->borrow_loaned_message();
         message.get().size = 0;
-#ifdef AAMF
-        aamf_client_->aamf_gemm_wrapper(true);
+#ifdef PAAM
+        paam_client_->paam_gemm_wrapper(true);
 #endif
 #ifdef DIRECT_INVOCATION
         di_gemm->gemm_wrapper();
@@ -97,12 +97,12 @@ namespace nodes
       rclcpp::Publisher<message_t>::SharedPtr publisher_;
       rclcpp::TimerBase::SharedPtr timer_;
       uint32_t sequence_number_ = 0;
-#ifdef AAMF
-      std::shared_ptr<aamf_client_wrapper> aamf_client_;
-      rclcpp::Publisher<aamf_server_interfaces::msg::GPURequest>::SharedPtr request_publisher_;
-      rclcpp::Publisher<aamf_server_interfaces::msg::GPURegister>::SharedPtr reg_publisher_;
-      // rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
-      rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
+#ifdef PAAM
+      std::shared_ptr<paam_client_wrapper> paam_client_;
+      rclcpp::Publisher<paam_server_interfaces::msg::GPURequest>::SharedPtr request_publisher_;
+      rclcpp::Publisher<paam_server_interfaces::msg::GPURegister>::SharedPtr reg_publisher_;
+      // rclcpp::Subscription<paam_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
+      rclcpp::Subscription<paam_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
 #endif
 #ifdef DIRECT_INVOCATION
       std::shared_ptr<gemm_operator> di_gemm;

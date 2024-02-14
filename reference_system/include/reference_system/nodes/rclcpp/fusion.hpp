@@ -22,8 +22,8 @@
 #include "reference_system/number_cruncher.hpp"
 #include "reference_system/sample_management.hpp"
 #include "reference_system/msg_types.hpp"
-#ifdef AAMF
-#include "reference_system/aamf_wrappers.hpp"
+#ifdef PAAM
+#include "reference_system/paam_wrappers.hpp"
 #endif
 #ifdef DIRECT_INVOCATION
 #include "reference_system/gpu_operations.hpp"
@@ -41,15 +41,15 @@ namespace nodes
             number_crunch_limit_(settings.number_crunch_limit)
       {
 
-#ifdef AAMF
-        auto aamf_client = std::make_shared<aamf_client_wrapper>(settings.callback_priority_1, settings.callback_priority_1, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024),
-                                                                 this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024));
-        auto register_sub = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+#ifdef PAAM
+        auto paam_client = std::make_shared<paam_client_wrapper>(settings.callback_priority_1, settings.callback_priority_1, this->create_publisher<paam_server_interfaces::msg::GPURequest>("request_topic", 1024),
+                                                                 this->create_publisher<paam_server_interfaces::msg::GPURegister>("registration_topic", 1024));
+        auto register_sub = this->create_subscription<paam_server_interfaces::msg::GPURegister>("handshake_topic", 1024, [this](const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
                                                                                                 { Fusion::handshake_callback( 0U, msg); });
-        aamf_client->register_subscriber(register_sub);
-        aamf_client->register_sub_->callback_priority = 99;
-        aamf_client->send_handshake();
-        subscriptions_[0].aamf_client = aamf_client;
+        paam_client->register_subscriber(register_sub);
+        paam_client->register_sub_->callback_priority = 99;
+        paam_client->send_handshake();
+        subscriptions_[0].paam_client = paam_client;
 #endif
 #ifdef DIRECT_INVOCATION
         auto gemm_1 = std::make_shared<gemm_operator>();
@@ -59,15 +59,15 @@ namespace nodes
             settings.input_0, 1,
             [this](const message_t::SharedPtr msg)
             { input_callback(0U, msg); });
-#ifdef AAMF
-        auto aamf_client_1 = std::make_shared<aamf_client_wrapper>(settings.callback_priority_2, settings.callback_priority_2, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024),
-                                                                   this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024));
-        auto register_sub_1 = this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, [this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+#ifdef PAAM
+        auto paam_client_1 = std::make_shared<paam_client_wrapper>(settings.callback_priority_2, settings.callback_priority_2, this->create_publisher<paam_server_interfaces::msg::GPURequest>("request_topic", 1024),
+                                                                   this->create_publisher<paam_server_interfaces::msg::GPURegister>("registration_topic", 1024));
+        auto register_sub_1 = this->create_subscription<paam_server_interfaces::msg::GPURegister>("handshake_topic", 1024, [this](const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
                                                                                                   {Fusion::handshake_callback(1U, msg); });
-        aamf_client_1->register_subscriber(register_sub_1);
-        aamf_client_1->register_sub_->callback_priority = 99;
-        aamf_client_1->send_handshake();
-        subscriptions_[1].aamf_client = aamf_client_1;
+        paam_client_1->register_subscriber(register_sub_1);
+        paam_client_1->register_sub_->callback_priority = 99;
+        paam_client_1->send_handshake();
+        subscriptions_[1].paam_client = paam_client_1;
 #endif
 #ifdef DIRECT_INVOCATION
         auto gemm_2 = std::make_shared<gemm_operator>();
@@ -85,10 +85,10 @@ namespace nodes
       }
 
     private:
-#ifdef AAMF
-      void handshake_callback( const uint64_t input_number, const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+#ifdef PAAM
+      void handshake_callback( const uint64_t input_number, const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
       {
-        subscriptions_[input_number].aamf_client->handshake_callback(msg);
+        subscriptions_[input_number].paam_client->handshake_callback(msg);
       }
 #endif
       void input_callback(
@@ -106,8 +106,8 @@ namespace nodes
         }
 
         auto number_cruncher_result = number_cruncher(number_crunch_limit_);
-#ifdef AAMF
-        subscriptions_[input_number].aamf_client->aamf_gemm_wrapper(true);
+#ifdef PAAM
+        subscriptions_[input_number].paam_client->paam_gemm_wrapper(true);
 #endif
 #ifdef DIRECT_INVOCATION
       subscriptions_[input_number].di_gemm->gemm_wrapper();
@@ -141,8 +141,8 @@ namespace nodes
         rclcpp::Subscription<message_t>::SharedPtr subscription;
         uint32_t sequence_number = 0;
         message_t::SharedPtr cache;
-#ifdef AAMF
-        std::shared_ptr<aamf_client_wrapper> aamf_client;
+#ifdef PAAM
+        std::shared_ptr<paam_client_wrapper> paam_client;
 #endif
 #ifdef DIRECT_INVOCATION
       std::shared_ptr<gemm_operator> di_gemm;
@@ -152,7 +152,7 @@ namespace nodes
       subscription_t subscriptions_[2];
       uint64_t number_crunch_limit_;
       uint32_t sequence_number_ = 0;
-#ifdef AAMF
+#ifdef PAAM
     uint64_t id_0 = 0;
     uint64_t id_1 = 1;
 #endif

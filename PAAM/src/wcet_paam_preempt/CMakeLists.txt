@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(wcet_aamf_preempt)
+project(wcet_paam_preempt)
 
 # Default to C++14
 if(NOT CMAKE_CXX_STANDARD)
@@ -16,7 +16,7 @@ endif()
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(include)
 include_directories(../../include)
-include_directories(../AAMF/include)
+include_directories(../PAAM/include)
 include_directories(../)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # find dependencies
@@ -24,7 +24,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(test_msgs REQUIRED)
 find_package(trace_picas REQUIRED)
-find_package(aamf_server_interfaces REQUIRED)
+find_package(paam_server_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -41,7 +41,7 @@ ament_target_dependencies(case_study
 "rclcpp" 
 "test_msgs" 
 "trace_picas"
-"aamf_server_interfaces"
+"paam_server_interfaces"
 "Boost"
 "OpenCV"
 "std_msgs")

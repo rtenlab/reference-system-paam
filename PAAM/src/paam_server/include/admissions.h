@@ -41,7 +41,6 @@ private:
     double util;
     std::string type;
     std::vector<chainset> chainsets;
-    //std::vector<std::shared_ptr<chain>> chains;
 };
 
 struct timer_callback
@@ -75,6 +74,8 @@ public:
     int num_chains = -1;
     int num_callbacks = -1;
     int id = -1;
+    int num_gpus = -1;
+    int num_tpus = -1;
     std::vector<std::shared_ptr<cpu>> cpus;
     std::vector<std::shared_ptr<executor>> executors;
     std::vector<std::shared_ptr<callback>> callbacks;
@@ -87,7 +88,7 @@ public:
     double job_driven_gpu_bound(std::shared_ptr<callback> t_callback, std::vector<std::shared_ptr<callback>> chain_callbacks, double R);
     void request_driven_tpu_bound(void);
     double job_driven_tpu_bound(std::shared_ptr<callback> t_callback, std::vector<std::shared_ptr<callback>> chain_callbacks, double R);
-    
+    bool schedule_multiple_accelerators(void);
     timer_callback find_timer_callback(std::vector<std::shared_ptr<executor>> chain_executors, int chain_id);
     std::vector<callback_row> to_callback_row(void);
     std::vector<std::vector<callback_row>> to_callback_row_vector(void);
@@ -127,8 +128,7 @@ public:
     double tpu_handling;
     double segment_gpu_handling;
     double segment_tpu_handling;
-    double segment_n_gpu_callbacks;
-    double segment_n_tpu_callbacks;
+    double segment_n_callbacks;
     int gpu_id = -1;
     int tpu_id = -1;
     callback(int id, int period, double execution, double gpu_execution, int chain_id, int order, int callback_prio, int cpu_id, int executor_id, int bucket, double tpu_C);

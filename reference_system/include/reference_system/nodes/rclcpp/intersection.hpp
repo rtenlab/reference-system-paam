@@ -23,8 +23,8 @@
 #include "reference_system/number_cruncher.hpp"
 #include "reference_system/sample_management.hpp"
 #include "reference_system/msg_types.hpp"
-#ifdef AAMF
-#include "reference_system/aamf_wrappers.hpp"
+#ifdef PAAM
+#include "reference_system/paam_wrappers.hpp"
 #endif
 #ifdef DIRECT_INVOCATION
 #include "reference_system/gpu_operations.hpp"
@@ -43,16 +43,16 @@ namespace nodes
 
         for (auto &connection : settings.connections)
         {
-#ifdef AAMF
-          auto aamf_client = std::make_shared<aamf_client_wrapper>(connection.callback_priority, connection.callback_priority, this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024), this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024));
+#ifdef PAAM
+          auto paam_client = std::make_shared<paam_client_wrapper>(connection.callback_priority, connection.callback_priority, this->create_publisher<paam_server_interfaces::msg::GPURequest>("request_topic", 1024), this->create_publisher<paam_server_interfaces::msg::GPURegister>("registration_topic", 1024));
 
-          auto register_sub = this->create_subscription<aamf_server_interfaces::msg::GPURegister>(
-              "handshake_topic", 1024, [this, id = connections_.size()](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+          auto register_sub = this->create_subscription<paam_server_interfaces::msg::GPURegister>(
+              "handshake_topic", 1024, [this, id = connections_.size()](const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
               { handshake_callback(msg, id); });
-          aamf_client->register_subscriber(register_sub);
-          aamf_client->register_sub_->callback_priority = 99;
-          aamf_client->send_handshake();
-          this->aamf_client_.push_back(aamf_client);
+          paam_client->register_subscriber(register_sub);
+          paam_client->register_sub_->callback_priority = 99;
+          paam_client->send_handshake();
+          this->paam_client_.push_back(paam_client);
 #endif
           connections_.emplace_back(
               Connection{
@@ -65,9 +65,9 @@ namespace nodes
                         input_callback(msg, id);
                       }),
                   connection.number_crunch_limit
-#ifdef AAMF
+#ifdef PAAM
                   ,
-                  aamf_client
+                  paam_client
 #endif
 #ifdef DIRECT_INVOCATION
                   ,
@@ -82,18 +82,18 @@ namespace nodes
       }
 
     private:
-#ifdef AAMF
-      void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg, const uint64_t id)
+#ifdef PAAM
+      void handshake_callback(const paam_server_interfaces::msg::GPURegister::SharedPtr msg, const uint64_t id)
       {
-        aamf_client_[id]->handshake_callback(msg);
+        paam_client_[id]->handshake_callback(msg);
       }
 #endif
       void input_callback(const message_t::SharedPtr input_message, const uint64_t id)
       {
         uint64_t timestamp = now_as_int();
         auto number_cruncher_result = number_cruncher(connections_[id].number_crunch_limit);
-#ifdef AAMF
-        connections_[id].aamf_client->aamf_gemm_wrapper(true);
+#ifdef PAAM
+        connections_[id].paam_client->paam_gemm_wrapper(true);
 #endif
 #ifdef DIRECT_INVOCATION
         connections_[id].di_gemm->gemm_wrapper();
@@ -116,8 +116,8 @@ namespace nodes
       }
 
     private:
-      struct aamf_args{
-        const aamf_server_interfaces::msg::GPURegister::SharedPtr msg;
+      struct paam_args{
+        const paam_server_interfaces::msg::GPURegister::SharedPtr msg;
         const uint64_t id;
       };
       struct Connection
@@ -125,8 +125,8 @@ namespace nodes
         rclcpp::Publisher<message_t>::SharedPtr publisher;
         rclcpp::Subscription<message_t>::SharedPtr subscription;
         uint64_t number_crunch_limit;
-#ifdef AAMF
-        std::shared_ptr<aamf_client_wrapper> aamf_client;
+#ifdef PAAM
+        std::shared_ptr<paam_client_wrapper> paam_client;
 #endif
 #ifdef DIRECT_INVOCATION
       std::shared_ptr<gemm_operator> di_gemm;
@@ -135,8 +135,8 @@ namespace nodes
         uint32_t input_sequence_number = 0;
       };
       std::vector<Connection> connections_;
-#ifdef AAMF
-      std::vector<std::shared_ptr<aamf_client_wrapper>> aamf_client_;
+#ifdef PAAM
+      std::vector<std::shared_ptr<paam_client_wrapper>> paam_client_;
 #endif
     };
   } // namespace rclcpp_system

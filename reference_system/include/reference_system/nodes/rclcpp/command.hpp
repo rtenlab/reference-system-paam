@@ -21,8 +21,8 @@
 #include "reference_system/nodes/settings.hpp"
 #include "reference_system/sample_management.hpp"
 #include "reference_system/msg_types.hpp"
-#ifdef AAMF
-#include "reference_system/aamf_wrappers.hpp"
+#ifdef PAAM
+#include "reference_system/paam_wrappers.hpp"
 #endif
 #ifdef DIRECT_INVOCATION
 #include "reference_system/gpu_operations.hpp"
@@ -39,18 +39,18 @@ namespace nodes
           : Node(settings.node_name)
       {
 
-#ifdef AAMF
-        this->request_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURequest>("request_topic", 1024);
-        this->reg_publisher_ = this->create_publisher<aamf_server_interfaces::msg::GPURegister>("registration_topic", 1024);
-        aamf_client_.push_back(std::make_shared<aamf_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_));
-        this->register_sub_.push_back(this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 1024, std::bind(&Command::handshake_callback, this, std::placeholders::_1)));
+#ifdef PAAM
+        this->request_publisher_ = this->create_publisher<paam_server_interfaces::msg::GPURequest>("request_topic", 1024);
+        this->reg_publisher_ = this->create_publisher<paam_server_interfaces::msg::GPURegister>("registration_topic", 1024);
+        paam_client_.push_back(std::make_shared<paam_client_wrapper>(settings.callback_priority, settings.callback_priority, request_publisher_, reg_publisher_));
+        this->register_sub_.push_back(this->create_subscription<paam_server_interfaces::msg::GPURegister>("handshake_topic", 1024, std::bind(&Command::handshake_callback, this, std::placeholders::_1)));
 
-        // this->register_sub_.push_back(this->create_subscription<aamf_server_interfaces::msg::GPURegister>("handshake_topic", 100,
-        //[this](const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+        // this->register_sub_.push_back(this->create_subscription<paam_server_interfaces::msg::GPURegister>("handshake_topic", 100,
+        //[this](const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
         //{ this->handshake_callback(msg); }));
         register_sub_[0]->callback_priority = 99;
-        aamf_client_[0]->register_subscriber(register_sub_[0]);
-        aamf_client_[0]->send_handshake();
+        paam_client_[0]->register_subscriber(register_sub_[0]);
+        paam_client_[0]->send_handshake();
 
 #endif
 #ifdef DIRECT_INVOCATION
@@ -66,18 +66,18 @@ namespace nodes
       }
 
     private:
-#ifdef AAMF
-      void handshake_callback(const aamf_server_interfaces::msg::GPURegister::SharedPtr msg)
+#ifdef PAAM
+      void handshake_callback(const paam_server_interfaces::msg::GPURegister::SharedPtr msg)
       {
-        aamf_client_[0]->handshake_callback(msg);
+        paam_client_[0]->handshake_callback(msg);
       }
 #endif
 
       void input_callback(const message_t::SharedPtr input_message)
       {
         
-#ifdef AAMF
-        aamf_client_[0]->aamf_gemm_wrapper(true);
+#ifdef PAAM
+        paam_client_[0]->paam_gemm_wrapper(true);
 #endif
 
 #ifdef DIRECT_INVOCATION
@@ -90,12 +90,12 @@ namespace nodes
     private:
       rclcpp::Subscription<message_t>::SharedPtr subscription_;
       uint32_t sequence_number_ = 0;
-#ifdef AAMF
-      std::vector<std::shared_ptr<aamf_client_wrapper>> aamf_client_;
-      rclcpp::Publisher<aamf_server_interfaces::msg::GPURequest>::SharedPtr request_publisher_;
-      rclcpp::Publisher<aamf_server_interfaces::msg::GPURegister>::SharedPtr reg_publisher_;
-      // rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
-      std::vector<rclcpp::Subscription<aamf_server_interfaces::msg::GPURegister>::SharedPtr> register_sub_;
+#ifdef PAAM
+      std::vector<std::shared_ptr<paam_client_wrapper>> paam_client_;
+      rclcpp::Publisher<paam_server_interfaces::msg::GPURequest>::SharedPtr request_publisher_;
+      rclcpp::Publisher<paam_server_interfaces::msg::GPURegister>::SharedPtr reg_publisher_;
+      // rclcpp::Subscription<paam_server_interfaces::msg::GPURegister>::SharedPtr register_sub_;
+      std::vector<rclcpp::Subscription<paam_server_interfaces::msg::GPURegister>::SharedPtr> register_sub_;
 #endif
 #ifdef DIRECT_INVOCATION
       std::shared_ptr<gemm_operator> di_gemm;

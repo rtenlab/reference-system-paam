@@ -189,7 +189,9 @@ void run_hist(struct hist_struct *shared_request, int bucket, bool *in_use)
     pthread_mutex_lock(&shared_request->pthread_mutex);
     cudaError_t cuda_ret;
     unsigned int *bins_d, *in_d;
-    unsigned int num_elements = 1000000, num_bins = 4096;
+    //unsigned int num_elements = 1000000, num_bins = 4096;
+    unsigned int num_elements = shared_request->request.num_elements;
+    unsigned int num_bins = shared_request->request.nbins;
     cuda_ret = cudaMallocAsync((void **)&in_d, num_elements * sizeof(unsigned int), streams[bucket]);
     if (cuda_ret != cudaSuccess)
     {

@@ -66,7 +66,8 @@ struct hist_request
   unsigned int in_h[1000000];
   uint32_t priority;
   unsigned char uuid[16];
-  int nbins;
+  int num_elements = 1000000;
+  int nbins = 4096;
 };
 
 struct hist_response
@@ -247,12 +248,12 @@ void log_struct::set_end()
 void log_struct::log_latency(std::string type)
 {
   std::ofstream fileout;
-  fileout.open("/home/aamf/Research/overhead/overhead_breakdown.csv", std::ios_base::app);
+  fileout.open("/home/paam/Research/overhead/overhead_breakdown.csv", std::ios_base::app);
   fileout << type << ": " << end_time.tv_sec - start_time.tv_sec << "," << end_time.tv_usec - start_time.tv_usec << std::endl;
   fileout.close();
 }
 void log_struct::set_filename()
 {
-  char temp[52] = "/home/aamf/Research/overhead/overhead_breakdown.csv";
+  char temp[52] = "/home/paam/Research/overhead/overhead_breakdown.csv";
   strcpy(this->filename, temp);
 }

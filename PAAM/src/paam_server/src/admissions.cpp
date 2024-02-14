@@ -100,8 +100,7 @@ callback::callback(int id, int period, double execution, double gpu_execution, i
     this->segment_C = 0;
     this->segment_G = 0;
     this->segment_gpu_handling = 0;
-    this->segment_n_gpu_callbacks = 0;
-    this->segment_n_tpu_callbacks = 0;
+    this->segment_n_callbacks = 0;
     this->chain_on_cpu = false;
     this->bucket = bucket;
     this->executor = executor_id;
@@ -133,11 +132,9 @@ callback::callback(const callback &second)
     this->gpu_waiting = second.gpu_waiting;
     this->gpu_handling = second.gpu_handling;
     this->segment_gpu_handling = second.segment_gpu_handling;
-    this->segment_n_gpu_callbacks = second.segment_n_gpu_callbacks;
-    this->segment_n_tpu_callbacks = second.segment_n_tpu_callbacks;
+    this->segment_n_callbacks = second.segment_n_callbacks;
     this->tpu_id = second.tpu_id;
     this->gpu_id = second.gpu_id;
-
 }
 bool callback::operator==(const callback &c)
 {
@@ -162,6 +159,8 @@ chain::chain(const chain &second)
     this->C = second.C;
     this->T = second.T;
     this->sem_priority = second.sem_priority;
+    this->gpu = second.gpu;
+    this->tpu = second.tpu;
 }
 chain chain::operator=(const chain &other)
 {
@@ -180,6 +179,8 @@ void chain::swap(chain &first, chain &second) // nothrow
     std::swap(first.C, second.C);
     std::swap(first.T, second.T);
     std::swap(first.sem_priority, second.sem_priority);
+    std::swap(first.gpu, second.gpu);
+    std::swap(first.tpu, second.tpu);
 }
 void callback::swap(callback &first, callback &second) // nothrow
 {
@@ -208,8 +209,7 @@ void callback::swap(callback &first, callback &second) // nothrow
     std::swap(first.gpu_waiting, second.gpu_waiting);
     std::swap(first.gpu_handling, second.gpu_handling);
     std::swap(first.segment_gpu_handling, second.segment_gpu_handling);
-    std::swap(first.segment_n_gpu_callbacks, second.segment_n_gpu_callbacks);
-    std::swap(first.segment_n_tpu_callbacks, second.segment_n_tpu_callbacks);
+    std::swap(first.segment_n_callbacks, second.segment_n_callbacks);
     std::swap(first.tpu_id, second.tpu_id);
     std::swap(first.gpu_id, second.gpu_id);
 }
@@ -271,7 +271,6 @@ std::vector<callback_row> chainset::to_callback_row(void)
     }
     return data;
 }
-
 
 std::vector<std::vector<callback_row>> chainset::to_callback_row_vector(void)
 {
@@ -394,7 +393,7 @@ chainset::chainset(std::vector<callback_row> data, int num_gpus, int num_tpus)
                 tpu = acc;
             }
         }
-        // worst fit decreasing initial accelerator assignment 
+        // worst fit decreasing initial accelerator assignment
         for (auto &acc : this->accelerators)
         {
             if (chain->gpu)
@@ -423,18 +422,19 @@ chainset::chainset(std::vector<callback_row> data, int num_gpus, int num_tpus)
         if (gpu != nullptr)
         {
             gpu->set_util(gpu->get_util() + gpu_C);
-            printf("Chain %d assigned to GPU %d\n",chain->id, gpu->get_id());
-
+            printf("Chain %d assigned to GPU %d\n", chain->id, gpu->get_id());
         }
-        else{
+        else
+        {
             printf("GPU IS NULL\n");
         }
-        if(tpu != nullptr)
+        if (tpu != nullptr)
         {
             tpu->set_util(tpu->get_util() + tpu_C);
             printf("Chain %d assigned to TPU %d\n", chain->id, tpu->get_id());
         }
-        else{
+        else
+        {
             printf("TPU IS NULL\n");
         }
         int gid = -1, tid = -1;
@@ -453,20 +453,49 @@ chainset::chainset(std::vector<callback_row> data, int num_gpus, int num_tpus)
         this->cpus.at(e->cpu_id)->assign_executor(e);
     }
 }
-void chain::assign_accelerators_to_callbacks(int gpu_id, int tpu_id){
-    if(tpu_id != -1){
-        for(auto &callback : this->t_callback){
+bool chainset::schedule_multiple_accelerators(void) 
+// REWORK so that we do not reassign 
+// existing chains to different accelerators.
+{
+    bool val = this->schedulable();
+    if (val)
+    {
+        return val;
+    }
+    else
+    {
+        if (num_gpus > 0)
+        {
+            if (num_tpus > 0)
+            {
+                // For all gpus and tpus in the system, 
+                // iterate through all different combinations 
+                // and invoke the schedulability test until we have a successful test
+            }
+        }
+    }
+}
+void chain::assign_accelerators_to_callbacks(int gpu_id, int tpu_id)
+{
+    if (tpu_id != -1)
+    {
+        for (auto &callback : this->t_callback)
+        {
             callback->tpu_id = tpu_id;
         }
-        for(auto &callback : this->r_callbacks){
+        for (auto &callback : this->r_callbacks)
+        {
             callback->tpu_id = tpu_id;
         }
     }
-    if(gpu_id != -1){
-        for(auto &callback : this->t_callback){
+    if (gpu_id != -1)
+    {
+        for (auto &callback : this->t_callback)
+        {
             callback->gpu_id = gpu_id;
         }
-        for(auto &callback : this->r_callbacks){
+        for (auto &callback : this->r_callbacks)
+        {
             callback->gpu_id = gpu_id;
         }
     }
@@ -474,6 +503,7 @@ void chain::assign_accelerators_to_callbacks(int gpu_id, int tpu_id){
 bool chainset::schedulable(void)
 {
     this->request_driven_gpu_bound();
+    this->request_driven_tpu_bound();
     std::vector<std::shared_ptr<callback>> sch_callbacks;
     std::vector<std::shared_ptr<executor>> sch_executors;
 
@@ -485,8 +515,7 @@ bool chainset::schedulable(void)
         std::vector<double> chain_segment_exe_time(this->chains.size(), 0);
         std::vector<double> chain_segment_gpu_time(this->chains.size(), 0);
         std::vector<double> chain_segment_gpu_handling(this->chains.size(), 0);
-        std::vector<int> chain_segment_n_gpu_callbacks(this->chains.size(), 0);
-        std::vector<int> chain_segment_n_tpu_callbacks(this->chains.size(), 0);
+        std::vector<int> chain_segment_n_callbacks(this->chains.size(), 0);
         std::vector<double> chain_segment_tpu_time(this->chains.size(), 0);
         std::vector<double> chain_segment_tpu_handling(this->chains.size(), 0);
         for (auto &e : c->executors)
@@ -503,8 +532,7 @@ bool chainset::schedulable(void)
                 chain_segment_gpu_time[curr_chain] += t->G;
                 chain_segment_tpu_time[curr_chain] += t->tpu_C;
                 chain_segment_gpu_handling[curr_chain] += t->gpu_handling;
-                chain_segment_n_gpu_callbacks[curr_chain] += 1;
-                chain_segment_n_tpu_callbacks[curr_chain] += 1;
+                chain_segment_n_callbacks[curr_chain] += 1;
                 sch_callbacks.push_back(t);
                 idx++;
             }
@@ -521,8 +549,7 @@ bool chainset::schedulable(void)
                 sch_callbacks[chain_segment_task_idx[i]]->segment_Tpu = chain_segment_tpu_time[i];
                 sch_callbacks[chain_segment_task_idx[i]]->segment_tpu_handling = chain_segment_tpu_handling[i];
                 sch_callbacks[chain_segment_task_idx[i]]->segment_gpu_handling = chain_segment_gpu_handling[i];
-                sch_callbacks[chain_segment_task_idx[i]]->segment_n_gpu_callbacks = chain_segment_n_gpu_callbacks[i];
-                sch_callbacks[chain_segment_task_idx[i]]->segment_n_tpu_callbacks = chain_segment_n_tpu_callbacks[i];
+                sch_callbacks[chain_segment_task_idx[i]]->segment_n_callbacks = chain_segment_n_callbacks[i];
             }
         }
     }
@@ -538,7 +565,7 @@ bool chainset::schedulable(void)
               { return lhs->priority > rhs->priority; });
 
     for (auto &callback : sch_callbacks)
-    { 
+    {
         bool flag = true;
         int t_id = callback->id;
         bool segment_flag = callback->segment_flag;
@@ -613,8 +640,13 @@ bool chainset::schedulable(void)
             {
                 callback->segment_gpu_handling = gpu_handling;
             }
+            double tpu_handling = job_driven_tpu_bound(callback, sch_callbacks, R);
+            if (tpu_handling < callback->segment_tpu_handling)
+            {
+                callback->segment_tpu_handling = tpu_handling;
+            }
 
-            R = W = callback->segment_C + callback->segment_gpu_handling + B;
+            R = W = callback->segment_C + callback->segment_gpu_handling + callback->segment_tpu_handling + B;
             if (R <= R_prev)
             {
                 callback->wcrt = R;
@@ -698,8 +730,7 @@ void chainset::request_driven_gpu_bound(void)
             for (auto &selected_callback : this->callbacks)
             {
                 // If the selected callback has higher chain priority and is not the same callback and is not in the same chain
-                if (this->chains.at(selected_callback->chain_id)->sem_priority > this->chains.at(callback->chain_id)->sem_priority && selected_callback->id != callback->id 
-                && selected_callback->chain_id != callback->chain_id && selected_callback->gpu_id == callback->gpu_id)
+                if (this->chains.at(selected_callback->chain_id)->sem_priority > this->chains.at(callback->chain_id)->sem_priority && selected_callback->id != callback->id && selected_callback->chain_id != callback->chain_id && selected_callback->gpu_id == callback->gpu_id)
                 {
                     // Add the ceiling of the beta value divided by the period of the chain plus 1 multiplied by the sum of the GPU execution time and epsilon of the selected callback to the temp variable
                     temp += (ceil(beta / this->chains.at(selected_callback->chain_id)->T) + 1) * (selected_callback->G + selected_callback->epsilon);
@@ -729,11 +760,11 @@ double chainset::job_driven_gpu_bound(std::shared_ptr<callback> t_callback, std:
         if (callback->priority < t_callback->priority && callback->chain_id != t_callback->chain_id &&
             callback->bucket == t_callback->bucket && callback->gpu_id == t_callback->gpu_id && callback->G + callback->epsilon > max_gpu_exe)
         {
-            //set maximum GPU execution time to the GPU execution time plus epsilon
+            // set maximum GPU execution time to the GPU execution time plus epsilon
             max_gpu_exe = callback->G + callback->epsilon;
         }
     }
-    beta = max_gpu_exe * t_callback->segment_n_gpu_callbacks;
+    beta = max_gpu_exe * t_callback->segment_n_callbacks;
 
     // For all callbacks in the current chainset
     for (auto &callback : chain_callbacks)
@@ -757,7 +788,7 @@ void chainset::request_driven_tpu_bound(void)
         // Find the maximum GPU execution time of all other callbacks on the same gpu with higher priority
         for (auto &other_callback : this->callbacks)
         { // If the other callback has higher priority and is not in the same chain and is in the same bucket on the same gpu
-            if (other_callback->priority < callback->priority && other_callback->chain_id != callback->chain_id && callback->tpu_id == other_callback->tpu_id && other_callback->tpu_C + other_callback->epsilon > max_gpu_exe)
+            if (other_callback->priority < callback->priority && other_callback->chain_id != callback->chain_id && callback->tpu_id == other_callback->tpu_id && other_callback->tpu_C + other_callback->epsilon > max_tpu_exe)
             {
                 // Set the maximum GPU execution time to the other callback's GPU execution time
                 max_tpu_exe = other_callback->tpu_C + other_callback->epsilon;
@@ -772,8 +803,7 @@ void chainset::request_driven_tpu_bound(void)
             for (auto &selected_callback : this->callbacks)
             {
                 // If the selected callback has higher chain priority and is not the same callback and is not in the same chain
-                if (this->chains.at(selected_callback->chain_id)->sem_priority > this->chains.at(callback->chain_id)->sem_priority && selected_callback->id != callback->id 
-                && selected_callback->chain_id != callback->chain_id && selected_callback->tpu_id == callback->tpu_id)
+                if (this->chains.at(selected_callback->chain_id)->sem_priority > this->chains.at(callback->chain_id)->sem_priority && selected_callback->id != callback->id && selected_callback->chain_id != callback->chain_id && selected_callback->tpu_id == callback->tpu_id)
                 {
                     // Add the ceiling of the beta value divided by the period of the chain plus 1 multiplied by the sum of the GPU execution time and epsilon of the selected callback to the temp variable
                     temp += (ceil(beta / this->chains.at(selected_callback->chain_id)->T) + 1) * (selected_callback->tpu_C + selected_callback->epsilon);
@@ -801,13 +831,13 @@ double chainset::job_driven_tpu_bound(std::shared_ptr<callback> t_callback, std:
     {
         // If the callback is higher priority and not in the same chain and in the same bucket on the same gpu and the GPU execution time plus epsilon is greater than the maximum GPU execution time
         if (callback->priority < t_callback->priority && callback->chain_id != t_callback->chain_id &&
-             callback->tpu_id == t_callback->tpu_id && callback->tpu_C + callback->epsilon > max_tpu_exe)
+            callback->tpu_id == t_callback->tpu_id && callback->tpu_C + callback->epsilon > max_tpu_exe)
         {
-            //set maximum GPU execution time to the GPU execution time plus epsilon
+            // set maximum GPU execution time to the GPU execution time plus epsilon
             max_tpu_exe = callback->tpu_C + callback->epsilon;
         }
     }
-    beta = max_tpu_exe * t_callback->segment_n_tpu_callbacks;
+    beta = max_tpu_exe * t_callback->segment_n_callbacks;
 
     // For all callbacks in the current chainset
     for (auto &callback : chain_callbacks)
@@ -822,10 +852,8 @@ double chainset::job_driven_tpu_bound(std::shared_ptr<callback> t_callback, std:
     return beta + t_callback->segment_G + 2 * t_callback->epsilon;
 }
 
-
-
 timer_callback chainset::find_timer_callback(std::vector<std::shared_ptr<executor>> chain_executors, int chain_id)
-{ 
+{
     timer_callback tc;
     for (auto &executor : chain_executors)
     {
@@ -970,27 +998,4 @@ callback_row::callback_row(double period, double cpu_time, double gpu_time, doub
     this->cpu_id = cpu_id;
     this->executor_id = executor_id;
     this->bucket = bucket;
-}
-
-int main(void)
-{
-    std::vector<callback_row> data;
-    callback_row r1(220, 1, 2, 220, 0, 1, 98, 0, 0, 0, 0);
-    callback_row r2(0, 1, 2, 0, 0, 2, 99, 0, 0, 0, 0);
-    callback_row r3(220, 1, 2, 220, 1, 1, 96, 1, 1, 1, 0);
-    callback_row r4(0, 1, 2, 0, 1, 2, 97, 1, 1, 1, 0);
-    data.push_back(r1);
-    data.push_back(r2);
-    data.push_back(r3);
-    data.push_back(r4);
-    chainset test(data);
-    if (test.schedulable())
-    {
-        printf("Chainset is Schedulable\n");
-    }
-    else
-    {
-        printf("Chainset is not Schedulable\n");
-    }
-    return 0;
 }

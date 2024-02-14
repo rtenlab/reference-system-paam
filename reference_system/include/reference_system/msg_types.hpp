@@ -15,8 +15,8 @@
 #define REFERENCE_SYSTEM__MSG_TYPES_HPP_
 
 #include "reference_interfaces/msg/message4kb.hpp"
-#include "aamf_server_interfaces/msg/gpu_request.hpp" 
-#include "aamf_server_interfaces/msg/gpu_register.hpp"
+#include "paam_server_interfaces/msg/gpu_request.hpp" 
+#include "paam_server_interfaces/msg/gpu_register.hpp"
 
 using message_t = reference_interfaces::msg::Message4kb;
 

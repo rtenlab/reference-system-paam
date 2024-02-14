@@ -315,7 +315,7 @@ private:
   std::vector<std::string> load_class_list()
   {
     std::vector<std::string> class_list;
-    std::ifstream ifs("/home/paam/Research/paam-RTAS/src/paam_server/net/classes.txt");
+    std::ifstream ifs("/home/paam/Research/PAAM-RTAS/src/paam_server/net/classes.txt");
     std::string line;
     while (getline(ifs, line))
     {
@@ -326,7 +326,7 @@ private:
 
   void load_net(cv::dnn::Net &net)
   {
-    auto result = cv::dnn::readNet("/home/paam/Research/paam-RTAS/src/paam_server/net/yolov5s.onnx");
+    auto result = cv::dnn::readNet("/home/paam/Research/PAAM-RTAS/src/paam_server/net/yolov5s.onnx");
     result.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
     result.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
     net = result;
@@ -702,44 +702,44 @@ private:
     //  this->enqueue(msg);
     this->enqueue(request); // Throw pointer to request into queue
   }
-  bool chainset_addition_schedulable(std::vector<callback_row> incoming)
-  {
-    std::vector<callback_row> temp = admitted_callback_list;
-    for (auto &row : incoming)
-    {
-      temp.push_back(row);
-    }
-    chainset temp_chainset(temp);
-    bool admitted = temp_chainset.schedulable();
-    if (admitted)
-    {
-      admitted_callback_list = temp;
-      return true;
-    }
-    return false;
-  }
-   callback_row make_callback_rows(paam_server_interfaces::msg::CallbackRow row)
-   {
-     return callback_row(row.period, row.cpu_time, row.gpu_time, row.deadline, row.chain_id, row.order, row.priority, row.cpu_id, row.executor_id, row.bucket, row.tpu_time);
-   }
+  // bool chainset_addition_schedulable(std::vector<callback_row> incoming)
+  // {
+  //   std::vector<callback_row> temp = admitted_callback_list;
+  //   for (auto &row : incoming)
+  //   {
+  //     temp.push_back(row);
+  //   }
+  //   chainset temp_chainset(temp);
+  //   bool admitted = temp_chainset.schedulable();
+  //   if (admitted)
+  //   {
+  //     admitted_callback_list = temp;
+  //     return true;
+  //   }
+  //   return false;
+  // }
+  //  callback_row make_callback_rows(paam_server_interfaces::msg::CallbackRow row)
+  //  {
+  //    return callback_row(row.period, row.cpu_time, row.gpu_time, row.deadline, row.chain_id, row.order, row.priority, row.cpu_id, row.executor_id, row.bucket, row.tpu_time);
+  //  }
   std::vector<accelerator> accelerators;
   int accelerator_types = 2;
   void admissions_callback(paam_server_interfaces::msg::Admissions::SharedPtr request)
   {
-    std::vector<callback_row> data; // incoming callback chain
-    for (auto &callback : request->data)
-    {
-      data.push_back(make_callback_rows(callback));
-    }
-    chainset incoming(data);
+    // std::vector<callback_row> data; // incoming callback chain
+    // for (auto &callback : request->data)
+    // {
+    //   data.push_back(make_callback_rows(callback));
+    // }
+    // chainset incoming(data);
 
-    std::vector<std::vector<callback_row>> chains = incoming.to_callback_row_vector();
+    // std::vector<std::vector<callback_row>> chains = incoming.to_callback_row_vector();
 
-    std::vector<chainset> chainsets;
-    for (auto &chain : chains)
-    {
-      chainsets.push_back(chainset(chain));
-    }
+    // std::vector<chainset> chainsets;
+    // for (auto &chain : chains)
+    // {
+    //   chainsets.push_back(chainset(chain));
+    // }
     
 
     // paam_server_interfaces::msg::AdmissionsResponse response;

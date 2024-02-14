@@ -83,7 +83,7 @@ public:
     chainset(std::vector<callback_row> data, int, int);
     std::vector<double> response_times;
     std::vector<double> deadlines;
-    bool schedulable(void);
+    double schedulable(void);
     void request_driven_gpu_bound(void);
     double job_driven_gpu_bound(std::shared_ptr<callback> t_callback, std::vector<std::shared_ptr<callback>> chain_callbacks, double R);
     void request_driven_tpu_bound(void);

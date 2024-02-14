@@ -500,7 +500,7 @@ void chain::assign_accelerators_to_callbacks(int gpu_id, int tpu_id)
         }
     }
 }
-bool chainset::schedulable(void)
+double chainset::schedulable(void)
 {
     this->request_driven_gpu_bound();
     this->request_driven_tpu_bound();
@@ -696,15 +696,18 @@ bool chainset::schedulable(void)
         z++;
     }
     z = 0;
+    double chains_schedulable = 0;
+
     for (auto &c : this->chains)
     {
-        if (c->T < chain_latency[z])
-        {
-            return false;
+        if (c->T >= chain_latency[z])
+        {   chains_schedulable += 1;
+            //return false;
         }
         z++;
     }
-    return true;
+    return chains_schedulable / this->chains.size();
+    //return true;
 }
 void chainset::request_driven_gpu_bound(void)
 {
@@ -1000,6 +1003,75 @@ callback_row::callback_row(double period, double cpu_time, double gpu_time, doub
     this->bucket = bucket;
 }
 
+
+std::vector<double> rtas_variable_chains_test(void){
+    int trails = 1000;
+    int num_callbacks = 4;
+    double cpu_util = 0.1;
+    int num_chains_per_chainset = 12;
+    std::vector<double> util_test;
+    for (double i = 0.05 ; i <= 0.70; i+=0.05){
+        util_test.push_back(i);
+    }
+    for ( auto util : util_test){
+        for ( int num_chains = 1; num_chains <= num_chains_per_chainset; num_chains++){
+            std::vector<double> trial_results;
+            for (int trial = 0; trial < trials; trial++){
+                std::vector<callback_row> test_config;
+                for ( auto i = 0; i < num_chains; i++){
+                    int period_rand = 100 + (rand() % 1000);
+                    period_rand = period_rand - (period_rand % 10);
+                    int prio = 99-i;
+                    int bucket = prio/17;
+                    for ( auto j = 0; j < num_callbacks; j++){
+                        if ( j == 1){
+                            callback_row chain_config(period_rand, period_rand*util/2/num_callbacks, period_rand*util/2/num_callbacks, period_rand, i, j, prio, 2+(i%6), i , bucket, 0);
+                            test_config.push_back(chain_config);
+                        }
+                        else{
+                            callback_row chain_config(0, period_rand*util/2/num_callbacks, period_rand*util/2/num_callbacks, 0, i, j, prio, 2+(i%6), i , bucket, 0);
+                            test_config.push_back(chain_config);
+                        }
+                    }
+
+                }
+            }
+    }
+    return test_config_results;
+}
+std::vector<double> rtas_variable_util_ratio_test(void){
+    int num_chains = 20;
+    int num_callbacks;
+    int fixed_chains = 4;
+    int fixed_callbacks = 4;
+    std::vector<double> utilization;
+    double fixed_utilization = 0.05;
+    double fixed_cpu_utilization = 0.001;
+    int fixed_period = 250;
+
+    std::vector<double> test_config_results;
+
+    for ( auto i = 0; i < num_callbacks; i++){
+        std::vector<callback_row> test_config;
+        for ( auto j = 0; j < fixed_chains; j++){
+            for( auto k = 0; k < i; k++){
+                if( k == 1){
+                    callback_row chain_config(fixed_period, fixed_period*fixed_utilization/2, fixed_period*fixed_utilization/2, fixed_period, j, k, 99 - j, 2+j, j , j, 0);
+                    test_config.push_back(chain_config);
+
+                }
+                else{
+                    callback_row chain_config(0, fixed_period*fixed_utilization/2, fixed_period*fixed_utilization/2, 0, j, k, 99 - j, 2+j, j , j, 0);
+                    test_config.push_back(chain_config);
+
+                }
+            }
+        }
+        chainset test(test_config, 1, 1);
+        test_config_results.push_back(test.schedulable());
+    }
+    return test_config_results;
+}
 int main(void)
 {
     std::vector<callback_row> data;

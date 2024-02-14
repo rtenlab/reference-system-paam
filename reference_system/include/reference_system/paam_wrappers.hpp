@@ -190,7 +190,7 @@ private:
     uint8_t *uuid_char;
     std::array<uint8_t, 16> uuid_array;
     std::unordered_map<std::string, int> key_map;
-    std::string input_file = "/home/paam/Research/paam-RTAS/src/paam_server/test_data/resized_cat.bmp";
+    std::string input_file = "/home/paam/Research/PAAM-RTAS/src/paam_server/test_data/resized_cat.bmp";
     rclcpp::Publisher<paam_server_interfaces::msg::GPURequest>::SharedPtr request_publisher_;
     rclcpp::Publisher<paam_server_interfaces::msg::GPURegister>::SharedPtr reg_publisher_;
 
