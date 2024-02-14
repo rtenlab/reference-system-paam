@@ -129,8 +129,8 @@ create `include/reference_system/MY_EXECUTOR_NAME_nodes`
 
 ### Packages:
 
-1. aamf_server_interfaces
-2. aamf_server
+1. paam_server_interfaces
+2. paam_server
 3. rclcpp (PiCAS scheduling)
 4. autoware_reference_system (and dependencies
 )
@@ -298,51 +298,51 @@ source ~/.bashrc
 3. Build the workspace
 
 ```bash
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPICAS=TRUE -DAAMF=TRUE
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPICAS=TRUE -DPAAM=TRUE
 ```
 
 4. To build a specific package run:
 
 ```bash
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPICAS=TRUE -DAAMF=TRUE --packages-select PACKAGE_NAME
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPICAS=TRUE -DPAAM=TRUE --packages-select PACKAGE_NAME
 ```
 
 ## Running the example
 In three separate terminals, as the *root* user, run the following to test the server
 ```bash
- iox-roudi -c /full/path/to/reference_system_aamf/roudi.toml
+ iox-roudi -c /full/path/to/reference_system_paam/roudi.toml
 ```
 ```bash
 source /root_dir/src/install/setup.bash
-export CYCLONEDDS_URI=file:///full/path/to/reference_system_aamf/cyclonedds.xml
-RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/aamf_server/aamf_server
+export CYCLONEDDS_URI=file:///full/path/to/reference_system_paam/cyclonedds.xml
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/paam_server/paam_server
 ```
 ```bash
 source /root_dir/src/install/setup.bash
-export CYCLONEDDS_URI=file:///full/path/to/reference_system_aamf/cyclonedds.xml
+export CYCLONEDDS_URI=file:///full/path/to/reference_system_paam/cyclonedds.xml
 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ./build/test_package_name/test_package args
 
 ```
 ## Compile options:
--DAAMF - enables aamf clients
+-DPAAM - enables paam clients
 
 -DOVERHEAD_DEBUG - enables logging for overhead
 
 -DDIRECT_INVOCATION - enables the direct invocation of kernels
 
--DPICAS - enables the PiCAS scheduling of callbacks (required for AAMF server and rclcpp)
+-DPICAS - enables the PiCAS scheduling of callbacks (required for PAAM server and rclcpp)
 
--DAAMF_PICAS - enables PiCAS scheduling of callbacks from clients using AAMF (allows AAMF server and rclcpp to compile and run with -DPICAS, but disables picas on clients)
+-DPAAM_PICAS - enables PiCAS scheduling of callbacks from clients using PAAM (allows PAAM server and rclcpp to compile and run with -DPICAS, but disables picas on clients)
  
- Note: compile options -DAAMF and -DDIRECT_INVOCATION should never be enabled simultaneously. 
- Note 2: -DPICAS is required to be enabled in rclcpp for the aamf_server package. -- to test clients without PiCAS, it is preferred to set '-DAAMF_PICAS=FALSE' and recompile with PiCAS enabled '-DPICAS=TRUE'
+ Note: compile options -DPAAM and -DDIRECT_INVOCATION should never be enabled simultaneously. 
+ Note 2: -DPICAS is required to be enabled in rclcpp for the paam_server package. -- to test clients without PiCAS, it is preferred to set '-DPAAM_PICAS=FALSE' and recompile with PiCAS enabled '-DPICAS=TRUE'
 
 ## Running CTest and Generating Figures
 ```bash
 sudo su
 cd /repo-root/
 source install/setup.bash
-colcon build --symlink-install --cmake-args -DPICAS=TRUE -DAAMF=FALSE -D AAMF_PICAS=TRUE -DDIRECT_INVOCATION=TRUE -DRUN_BENCHMARK=ON -DTEST_PLATFORM=TRUE --packages-select autoware_reference_system
+colcon build --symlink-install --cmake-args -DPICAS=TRUE -DPAAM=FALSE -D PAAM_PICAS=TRUE -DDIRECT_INVOCATION=TRUE -DRUN_BENCHMARK=ON -DTEST_PLATFORM=TRUE --packages-select autoware_reference_system
 colcon test --packages-select autoware_reference_system
 ```
 
