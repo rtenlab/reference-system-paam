@@ -314,10 +314,10 @@ private:
 
     void make_gemm_goal(struct gemm_struct *goal_struct)
     {
-        unsigned matArow = 750, matAcol = 750;
-        unsigned matBrow = 750, matBcol = 750;
-        // unsigned matArow = 1000, matAcol = 1000;
-        // unsigned matBrow = 1000, matBcol = 1000;
+        //unsigned matArow = 750, matAcol = 750;
+        //unsigned matBrow = 750, matBcol = 750;
+        unsigned matArow = 1000, matAcol = 1000;
+        unsigned matBrow = 1000, matBcol = 1000;
         goal_struct->request.A_sz = matArow * matAcol;
         goal_struct->request.B_sz = matBrow * matBcol;
         for (unsigned int i = 0; i < goal_struct->request.A_sz; i++)

@@ -260,8 +260,8 @@ void tpu_operator::init_tpu()
 void tpu_operator::tpu_wrapper()
 {
 
-    timeval t1, t2;
-    gettimeofday(&t1, NULL);
+    // timeval t1, t2;
+    // gettimeofday(&t1, NULL);
     //std::copy(image.begin(), image.end(), interpreter->typed_input_tensor<uint8_t>(0));
     // Run inference.
     std::memcpy(interpreter->typed_input_tensor<uint8_t>(0), &image[0], image.size());
@@ -278,9 +278,9 @@ void tpu_operator::tpu_wrapper()
     {
         result[i] = std::make_pair(results[i].first, results[i].second);
     }
-    gettimeofday(&t2, NULL);
-    long elapsedTime = (t2.tv_usec - t1.tv_usec) ;
-    std::cout << "Time taken by function: " << elapsedTime << " microseconds" << std::endl;
+    // gettimeofday(&t2, NULL);
+    // long elapsedTime = (t2.tv_usec - t1.tv_usec) ;
+    // std::cout << "Time taken by function: " << elapsedTime << " microseconds" << std::endl;
     /*for (auto &result : results)
         std::cout << std::setw(7) << std::fixed << std::setprecision(5)
                   << result.second << GetLabel(labels, result.first) << std::endl;*/
@@ -302,9 +302,9 @@ public:
 
 void gemm_operator::init_sgemm()
 {
-    matArow = 750;
-    matAcol = matBrow = 750;
-    matBcol = 750;
+    matArow = 1000;
+    matAcol = matBrow = 1000;
+    matBcol = 1000;
 
     A_sz = matArow * matAcol;
     B_sz = matBrow * matBcol;
@@ -337,11 +337,11 @@ gemm_operator::~gemm_operator()
 void di_gemm(gemm_operator *gemm_op);
 void gemm_operator::gemm_wrapper(void)
 {
-    timeval t1, t2;
-    gettimeofday(&t1, NULL);
+    // timeval t1, t2;
+    // gettimeofday(&t1, NULL);
     di_gemm(this);
-    gettimeofday(&t2, NULL);
-    long elapsedTime = (t2.tv_usec - t1.tv_usec) ;
-    std::cout << "Time taken by GEMM: " << elapsedTime << " microseconds" << std::endl;
+    // gettimeofday(&t2, NULL);
+    // long elapsedTime = (t2.tv_usec - t1.tv_usec) ;
+    // std::cout << "Time taken by GEMM: " << elapsedTime << " microseconds" << std::endl;
 }
 #endif // GPU_OPERATIONS_HPP

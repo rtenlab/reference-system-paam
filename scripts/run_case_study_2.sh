@@ -17,7 +17,7 @@ run_test() {
     duration=$2
     filename=$3
     echo "Running $test_name for $duration minute(s)..."
-    RMW_IMPLEMENTATION=rmw_cyclonedds_cpp  ../build/autoware_reference_system/$test_name > /home/paam/Research/data/V-B/"$filename" &
+    RMW_IMPLEMENTATION=rmw_cyclonedds_cpp  /home/paam/Research/reference-system-paam/build/autoware_reference_system/$test_name > /home/paam/Research/data/V-B/"$filename" &
     test_pid=$!
     sleep "$duration"m
     kill "$test_pid"
@@ -43,6 +43,7 @@ fi
 cd /home/paam/Research/reference-system-paam/
 
 colcon build --symlink-install --packages-select rclcpp autoware_reference_system reference_system --cmake-args -DPICAS=TRUE -DPAAM=TRUE -DPAAM_PICAS=TRUE -DDIRECT_INVOCATION=FALSE
+cd ./scripts/ 
 
 # # Launch iox-roudi in the background
 iox-roudi -c /home/paam/Research/reference-system-paam/roudi.toml &
@@ -62,8 +63,10 @@ sleep 15
 run_test "autoware_default_singlethreaded_picas_multi_executors" 1 "singlethreaded_me_paam_picas.log"
 run_test "autoware_default_multithreaded_picas" 1 "multithreaded_paam_picas.log"
 
-trap 'bring_to_foreground; kill $paam_pid' SIGINT
-trap 'bring_to_foreground; kill $iox_pid' SIGINT
+#trap 'bring_to_foreground; kill $paam_pid' SIGINT
+#trap 'bring_to_foreground; kill $iox_pid' SIGINT
+pkill paam_server
+
 cd /home/paam/Research/reference-system-paam/
 # build the reference system with picas and direct invocation
 colcon build --symlink-install --packages-select rclcpp autoware_reference_system reference_system --cmake-args -DPICAS=TRUE -DPAAM=FALSE -DPAAM_PICAS=TRUE -DDIRECT_INVOCATION=TRUE
@@ -81,4 +84,6 @@ cd ./scripts/
 # Run the tests that use direct invocation and no picas
 run_test "autoware_default_singlethreaded_multi_executors" 1 "singlethreaded_me_di_no_picas.log"
 run_test "autoware_default_multithreaded" 1 "multithreaded_di_no_picas.log"
+
+pkill iox-roudi
 
