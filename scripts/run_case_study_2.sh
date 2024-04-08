@@ -5,6 +5,8 @@ if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root"
    exit 1
 fi
+rm /home/paam/Research/data/V-B/*
+
 echo -1 > /proc/sys/kernel/sched_rt_runtime_us
 # Function to bring the background process into the foreground
 bring_to_foreground() {
@@ -65,7 +67,7 @@ run_test "autoware_default_multithreaded_picas" 1 "multithreaded_paam_picas.log"
 
 #trap 'bring_to_foreground; kill $paam_pid' SIGINT
 #trap 'bring_to_foreground; kill $iox_pid' SIGINT
-pkill paam_server
+pkill -SIGINT paam_server
 
 cd /home/paam/Research/reference-system-paam/
 # build the reference system with picas and direct invocation
